@@ -234,32 +234,20 @@ def _validate_price(section, item, errors, warnings):
         warnings.append(f"{section}.{item_id}: invalid price_date={price_date}")
 
 
-def _register_id(section, item_id, seen_ids, errors):
-    if not item_id or item_id == "<no-id>":
-        errors.append(f"{section}: missing id")
-        return
-    if not VALID_ID_PATTERN.fullmatch(str(item_id)):
-        errors.append(f"{section}.{item_id}: invalid id shape; use a stable category-model id")
-    previous = seen_ids.get(item_id)
-    if previous:
-        errors.append(f"duplicate id {item_id}: {previous} and {section}")
-    else:
-        seen_ids[item_id] = section
-
-
 @dataclass
-class ValidationState:
+class ValidationResult:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     counts: dict[str, int] = field(default_factory=dict)
     coverage_rows: list[str] = field(default_factory=list)
-    seen_ids: dict[str, str] = field(default_factory=dict)
+    id_entries: list[tuple[str, str]] = field(default_factory=list)
 
 
-def _validate_component_item(section, item, required, state):
+def _validate_component_item(section, item, required):
+    state = ValidationResult()
     item_id = item.get("id", "<no-id>")
-    _register_id(section, item_id, state.seen_ids, state.errors)
+    state.id_entries.append((section, item_id))
     if _id_not_normalized(item_id):
         state.errors.append(f"{section}.{item_id}: imported id was not normalized")
     missing = required - set(item.keys())
@@ -390,21 +378,25 @@ def _validate_component_item(section, item, required, state):
             size_mm = _parse_int(item.get("size_mm"))
             if size_mm < 80 or size_mm > 220:
                 state.errors.append(f"{section}.{item_id}: invalid size_mm={item.get('size_mm')}")
+    return state
 
 
-def _append_missing_field_messages(section, items, fields, target):
+def _missing_field_messages(section, items, fields):
+    messages = []
     for field in sorted(fields.get(section, set())):
         missing_items = [item.get("id", "<no-id>") for item in items if not item.get(field)]
         if not missing_items:
             continue
         sample = ", ".join(missing_items[:5])
-        target.append(
+        messages.append(
             f"{section}: {len(missing_items)}/{len(items)} missing or empty {field}"
             + (f" (sample: {sample})" if sample else "")
         )
+    return messages
 
 
-def _validate_component_sections(lib, state):
+def _validate_component_sections(lib):
+    state = ValidationResult()
     metadata_date = (lib.get("metadata") or {}).get("price_date")
     if metadata_date and not _valid_iso_date(str(metadata_date)):
         state.errors.append(f"components.metadata.price_date invalid: {metadata_date}")
@@ -418,14 +410,20 @@ def _validate_component_sections(lib, state):
         required = REQUIRED_FIELDS.get(section, set())
 
         for item in items:
-            _validate_component_item(section, item, required, state)
+            item_result = _validate_component_item(section, item, required)
+            state.errors.extend(item_result.errors)
+            state.warnings.extend(item_result.warnings)
+            state.notes.extend(item_result.notes)
+            state.id_entries.extend(item_result.id_entries)
 
-        _append_missing_field_messages(section, items, WARN_FIELDS, state.warnings)
-        _append_missing_field_messages(section, items, NOTE_FIELDS, state.notes)
+        state.warnings.extend(_missing_field_messages(section, items, WARN_FIELDS))
+        state.notes.extend(_missing_field_messages(section, items, NOTE_FIELDS))
         state.coverage_rows.extend(_coverage_rows(section, items))
+    return state
 
 
-def _validate_cases(cases, state):
+def _validate_cases(cases):
+    state = ValidationResult()
     case_items = cases.get("cases", [])
     if not isinstance(case_items, list) or not case_items:
         state.errors.append("cases: missing or empty section")
@@ -438,7 +436,7 @@ def _validate_cases(cases, state):
 
     for case in case_items:
         case_id = case.get("id", "<no-id>")
-        _register_id("cases", case_id, state.seen_ids, state.errors)
+        state.id_entries.append(("cases", case_id))
         if _id_not_normalized(case_id):
             state.errors.append(f"cases.{case_id}: imported id was not normalized")
         _validate_price("cases", case, state.errors, state.warnings)
@@ -476,24 +474,25 @@ def _validate_cases(cases, state):
             + (f" (sample: {sample})" if sample else "")
         )
     state.coverage_rows.extend(_coverage_rows("cases", case_items))
-    return case_items
+    return case_items, state
 
 
-def _append_optional_dataset_warning(label, field, missing_items, total, state):
+def _optional_dataset_warning(label, field, missing_items, total):
     if not missing_items:
-        return
+        return None
     sample = ", ".join(missing_items[:5])
-    state.warnings.append(
+    return (
         f"{label}: {len(missing_items)}/{total} missing {field}"
         + (f" (sample: {sample})" if sample else "")
     )
 
 
-def _validate_displays(state):
+def _validate_displays():
+    state = ValidationResult()
     displays_path = DATA / "displays.yaml"
     if not displays_path.exists():
         state.notes.append("displays.yaml: optional explicit monitor database missing")
-        return
+        return state
 
     with displays_path.open("r", encoding="utf-8") as file:
         displays = yaml.safe_load(file) or {}
@@ -508,7 +507,7 @@ def _validate_displays(state):
 
     for item in display_items:
         item_id = item.get("id", "<no-id>")
-        _register_id("displays", item_id, state.seen_ids, state.errors)
+        state.id_entries.append(("displays", item_id))
         missing = {"id", "model", "resolution"} - set(item.keys())
         if missing:
             state.errors.append(f"displays.{item_id}: missing fields {missing}")
@@ -538,16 +537,17 @@ def _validate_displays(state):
                 )
 
     total = len(display_items)
-    _append_optional_dataset_warning(
-        "displays", "price_cny", missing_display_prices, total, state
-    )
-    _append_optional_dataset_warning(
-        "displays", "refresh_rate_hz", missing_display_refresh, total, state
-    )
-    _append_optional_dataset_warning(
-        "displays", "brand", missing_display_brand, total, state
-    )
+    for warning in (
+        _optional_dataset_warning("displays", "price_cny", missing_display_prices, total),
+        _optional_dataset_warning(
+            "displays", "refresh_rate_hz", missing_display_refresh, total
+        ),
+        _optional_dataset_warning("displays", "brand", missing_display_brand, total),
+    ):
+        if warning:
+            state.warnings.append(warning)
     state.coverage_rows.extend(_coverage_rows("displays", display_items))
+    return state
 
 
 def _valid_fps_range(value):
@@ -560,11 +560,12 @@ def _valid_fps_range(value):
     )
 
 
-def _validate_game_fps(state):
+def _validate_game_fps():
+    state = ValidationResult()
     game_fps_path = DATA / "game_fps.yaml"
     if not game_fps_path.exists():
         state.errors.append("game_fps.yaml: missing game FPS reference table")
-        return
+        return state
 
     with game_fps_path.open("r", encoding="utf-8") as file:
         game_fps = yaml.safe_load(file) or {}
@@ -590,6 +591,49 @@ def _validate_game_fps(state):
             if field_name in row and not _valid_fps_range(row.get(field_name)):
                 state.errors.append(f"{prefix}: invalid {field_name}={row.get(field_name)}")
     state.counts["game_fps_samples"] = len(game_fps.get("benchmarks", []))
+    return state
+
+
+def _validate_ids(id_entries):
+    errors = []
+    seen_ids = {}
+    for section, item_id in id_entries:
+        if not item_id or item_id == "<no-id>":
+            errors.append(f"{section}: missing id")
+            continue
+        if not VALID_ID_PATTERN.fullmatch(str(item_id)):
+            errors.append(f"{section}.{item_id}: invalid id shape; use a stable category-model id")
+        previous = seen_ids.get(item_id)
+        if previous:
+            errors.append(f"duplicate id {item_id}: {previous} and {section}")
+        else:
+            seen_ids[item_id] = section
+    return ValidationResult(errors=errors)
+
+
+def _combine_validation_results(*results):
+    id_entries = [
+        entry
+        for result in results
+        for entry in result.id_entries
+    ]
+    id_result = _validate_ids(id_entries)
+    counts = {
+        key: value
+        for result in results
+        for key, value in result.counts.items()
+    }
+    return ValidationResult(
+        errors=[
+            *id_result.errors,
+            *(error for result in results for error in result.errors),
+        ],
+        warnings=[warning for result in results for warning in result.warnings],
+        notes=[note for result in results for note in result.notes],
+        counts=counts,
+        coverage_rows=[row for result in results for row in result.coverage_rows],
+        id_entries=id_entries,
+    )
 
 
 def _report_validation(lib, case_items, state):
@@ -632,8 +676,6 @@ def _report_validation(lib, case_items, state):
 
 
 def main():
-    state = ValidationState()
-
     comp_path = DATA / "components.yaml"
     if not comp_path.exists():
         print(f"FAIL: {comp_path} not found")
@@ -642,7 +684,7 @@ def main():
     with comp_path.open("r", encoding="utf-8") as f:
         lib = yaml.safe_load(f) or {}
 
-    _validate_component_sections(lib, state)
+    component_result = _validate_component_sections(lib)
 
     cases_path = DATA / "cases.yaml"
     if not cases_path.exists():
@@ -652,9 +694,15 @@ def main():
     with cases_path.open("r", encoding="utf-8") as f:
         cases = yaml.safe_load(f) or {}
 
-    case_items = _validate_cases(cases, state)
-    _validate_displays(state)
-    _validate_game_fps(state)
+    case_items, case_result = _validate_cases(cases)
+    display_result = _validate_displays()
+    fps_result = _validate_game_fps()
+    state = _combine_validation_results(
+        component_result,
+        case_result,
+        display_result,
+        fps_result,
+    )
     return _report_validation(lib, case_items, state)
 
 
