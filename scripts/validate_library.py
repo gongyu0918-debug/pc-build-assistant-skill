@@ -7,6 +7,7 @@
 
 import re
 import sys
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -246,15 +247,393 @@ def _register_id(section, item_id, seen_ids, errors):
         seen_ids[item_id] = section
 
 
-def main():
-    errors = []
-    warnings = []
-    notes = []
-    counts = {}
-    coverage_rows = []
-    seen_ids = {}
+@dataclass
+class ValidationState:
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    counts: dict[str, int] = field(default_factory=dict)
+    coverage_rows: list[str] = field(default_factory=list)
+    seen_ids: dict[str, str] = field(default_factory=dict)
 
-    # Load components.yaml
+
+def _validate_component_item(section, item, required, state):
+    item_id = item.get("id", "<no-id>")
+    _register_id(section, item_id, state.seen_ids, state.errors)
+    if _id_not_normalized(item_id):
+        state.errors.append(f"{section}.{item_id}: imported id was not normalized")
+    missing = required - set(item.keys())
+    if missing:
+        state.errors.append(f"{section}.{item_id}: missing fields {missing}")
+
+    _validate_price(section, item, state.errors, state.warnings)
+    if OBVIOUS_MODEL_TYPO_RE.search(str(item.get("model") or "")):
+        state.errors.append(f"{section}.{item_id}: obvious model-family spelling error")
+    if section == "cpus":
+        consistency_error = _check_cpu_vendor_consistency(item)
+        if consistency_error:
+            state.errors.append(f"{section}.{item_id}: {consistency_error}")
+    if section == "motherboards":
+        explicit_chipset = _explicit_motherboard_chipset(item)
+        chipset = _canonical_motherboard_chipset(item.get("chipset"))
+        if explicit_chipset and chipset and explicit_chipset != chipset:
+            state.errors.append(
+                f"{section}.{item_id}: chipset={chipset} conflicts with model token {explicit_chipset}"
+            )
+        memory_freq_max = item.get("memory_freq_max")
+        if memory_freq_max not in (None, ""):
+            if isinstance(memory_freq_max, bool) or not isinstance(memory_freq_max, int) or not 1600 <= memory_freq_max <= 12000:
+                state.errors.append(f"{section}.{item_id}: invalid memory_freq_max={memory_freq_max}")
+    if section == "gpus" and item.get("length_mm"):
+        try:
+            gpu_length = int(item.get("length_mm"))
+            if gpu_length > 450 or gpu_length < 120:
+                state.errors.append(f"{section}.{item_id}: impossible length_mm={item.get('length_mm')}")
+        except (TypeError, ValueError):
+            state.errors.append(f"{section}.{item_id}: invalid length_mm={item.get('length_mm')}")
+    if section == "gpus":
+        memory_type = str(item.get("memory_type") or "").strip().upper()
+        if memory_type and memory_type not in VALID_GPU_MEMORY_TYPES:
+            state.errors.append(f"{section}.{item_id}: invalid memory_type={item.get('memory_type')}")
+        inferred_vram = infer_gpu_vram(item)
+        current_vram = item.get("vram_gb")
+        if inferred_vram and current_vram:
+            try:
+                if int(current_vram) != int(inferred_vram):
+                    state.errors.append(
+                        f"{section}.{item_id}: vram_gb={current_vram} conflicts with model token {inferred_vram}GB"
+                    )
+            except (TypeError, ValueError):
+                state.errors.append(f"{section}.{item_id}: invalid vram_gb={current_vram}")
+        connectors = item.get("power_connectors") or []
+        if "16pin" in connectors and "6pin" in connectors:
+            state.errors.append(f"{section}.{item_id}: impossible mixed 16pin and 6pin connector data")
+    if section == "memory":
+        inferred_capacity = infer_memory_capacity_gb(item)
+        inferred_modules = infer_memory_module_count(item)
+        if inferred_capacity and item.get("capacity_gb") != inferred_capacity:
+            state.errors.append(
+                f"{section}.{item_id}: capacity_gb={item.get('capacity_gb')} "
+                f"conflicts with model-inferred {inferred_capacity}GB"
+            )
+        if inferred_modules and item.get("module_count") not in (None, inferred_modules):
+            state.errors.append(
+                f"{section}.{item_id}: module_count={item.get('module_count')} "
+                f"conflicts with model-inferred {inferred_modules}"
+            )
+        timing = item.get("timing")
+        if timing and not re.fullmatch(r"C(?:1[0-9]|[2-7][0-9]|80)", str(timing).upper()):
+            state.errors.append(f"{section}.{item_id}: invalid timing={timing}")
+    if section == "storage":
+        inferred_capacity = infer_capacity_gb(item)
+        raw_capacity_tb = item.get("capacity_tb")
+        if inferred_capacity and raw_capacity_tb:
+            try:
+                raw_capacity_gb = float(raw_capacity_tb) * 1024
+            except (TypeError, ValueError):
+                state.errors.append(f"{section}.{item_id}: invalid capacity_tb={raw_capacity_tb}")
+                raw_capacity_gb = float(inferred_capacity)
+            tolerance_gb = max(32.0, float(inferred_capacity) * 0.10)
+            if abs(raw_capacity_gb - float(inferred_capacity)) > tolerance_gb:
+                state.errors.append(
+                    f"{section}.{item_id}: capacity_tb={raw_capacity_tb} "
+                    f"conflicts with model-inferred {inferred_capacity}GB"
+                )
+        if "dram_cache" in item and not isinstance(item.get("dram_cache"), bool):
+            state.errors.append(f"{section}.{item_id}: invalid dram_cache={item.get('dram_cache')}")
+        if item.get("dram_cache_mb") not in (None, ""):
+            dram_cache_mb = item.get("dram_cache_mb")
+            if isinstance(dram_cache_mb, bool) or not isinstance(dram_cache_mb, int) or not 1 <= dram_cache_mb <= 32768:
+                state.errors.append(f"{section}.{item_id}: invalid dram_cache_mb={dram_cache_mb}")
+            if item.get("dram_cache") is not True:
+                state.errors.append(f"{section}.{item_id}: dram_cache_mb requires dram_cache=true")
+    if section == "coolers":
+        inferred_type = infer_cooler_type(item)
+        raw_type = str(item.get("type") or "").lower()
+        if inferred_type == "liquid" and raw_type not in {"liquid", "water", "水冷"}:
+            state.errors.append(f"{section}.{item_id}: type={item.get('type')} conflicts with model-inferred liquid cooler")
+    if section == "psus" and item.get("length_mm") not in (None, ""):
+        length_mm = item.get("length_mm")
+        if isinstance(length_mm, bool) or not isinstance(length_mm, int) or not 80 <= length_mm <= 300:
+            state.errors.append(f"{section}.{item_id}: invalid length_mm={length_mm}")
+    if section == "psus" and item.get("form_factor") not in (None, ""):
+        if item.get("form_factor") not in {"ATX", "SFX", "SFX-L", "FLEX", "TFX"}:
+            state.errors.append(f"{section}.{item_id}: invalid form_factor={item.get('form_factor')}")
+    if section == "fans":
+        if CPU_AIR_COOLER_RE.search(str(item.get("model", ""))):
+            state.errors.append(f"{section}.{item_id}: CPU/memory cooler classified as fan")
+        if item.get("fan_type") not in VALID_FAN_TYPES:
+            state.errors.append(f"{section}.{item_id}: invalid fan_type={item.get('fan_type')}")
+        if item.get("blade_direction") and item.get("blade_direction") not in VALID_BLADE_DIRECTIONS:
+            state.errors.append(f"{section}.{item_id}: invalid blade_direction={item.get('blade_direction')}")
+        if item.get("has_screen") and item.get("rgb") is not True:
+            state.errors.append(f"{section}.{item_id}: screen fan must be rgb=true")
+        if item.get("fan_type") == "aio_frame" and item.get("default_recommend") is not False:
+            state.errors.append(f"{section}.{item_id}: aio_frame must not be default_recommend")
+        accessory = bool(FAN_ACCESSORY_RE.search(str(item.get("model", "")).strip()))
+        if accessory and item.get("fan_type") != "accessory":
+            state.errors.append(f"{section}.{item_id}: accessory-only variant classified as fan")
+        if item.get("fan_type") == "accessory" and item.get("default_recommend") is not False:
+            state.errors.append(f"{section}.{item_id}: accessory must not be default_recommend")
+        model = str(item.get("model", ""))
+        explicit_black = bool(BLACK_VARIANT_RE.search(model))
+        explicit_white = bool(WHITE_VARIANT_RE.search(model))
+        mixed_color_label = "黑白" in model or "白黑" in model
+        if not mixed_color_label and explicit_black != explicit_white:
+            expected_color = "black" if explicit_black else "white"
+            if str(item.get("color") or "").lower() != expected_color:
+                state.errors.append(
+                    f"{section}.{item_id}: color={item.get('color')} "
+                    f"conflicts with explicit {expected_color} model token"
+                )
+        if item.get("size_mm"):
+            size_mm = _parse_int(item.get("size_mm"))
+            if size_mm < 80 or size_mm > 220:
+                state.errors.append(f"{section}.{item_id}: invalid size_mm={item.get('size_mm')}")
+
+
+def _append_missing_field_messages(section, items, fields, target):
+    for field in sorted(fields.get(section, set())):
+        missing_items = [item.get("id", "<no-id>") for item in items if not item.get(field)]
+        if not missing_items:
+            continue
+        sample = ", ".join(missing_items[:5])
+        target.append(
+            f"{section}: {len(missing_items)}/{len(items)} missing or empty {field}"
+            + (f" (sample: {sample})" if sample else "")
+        )
+
+
+def _validate_component_sections(lib, state):
+    metadata_date = (lib.get("metadata") or {}).get("price_date")
+    if metadata_date and not _valid_iso_date(str(metadata_date)):
+        state.errors.append(f"components.metadata.price_date invalid: {metadata_date}")
+
+    for section in REQUIRED_SECTIONS:
+        raw_items = lib.get(section)
+        if not isinstance(raw_items, list) or not raw_items:
+            state.errors.append(f"{section}: missing or empty section")
+        items = raw_items if isinstance(raw_items, list) else []
+        state.counts[section] = len(items)
+        required = REQUIRED_FIELDS.get(section, set())
+
+        for item in items:
+            _validate_component_item(section, item, required, state)
+
+        _append_missing_field_messages(section, items, WARN_FIELDS, state.warnings)
+        _append_missing_field_messages(section, items, NOTE_FIELDS, state.notes)
+        state.coverage_rows.extend(_coverage_rows(section, items))
+
+
+def _validate_cases(cases, state):
+    case_items = cases.get("cases", [])
+    if not isinstance(case_items, list) or not case_items:
+        state.errors.append("cases: missing or empty section")
+        case_items = []
+    state.counts["cases"] = len(case_items)
+
+    case_metadata_date = (cases.get("metadata") or {}).get("cutoff_date")
+    if case_metadata_date and not _valid_iso_date(str(case_metadata_date)):
+        state.errors.append(f"cases.metadata.cutoff_date invalid: {case_metadata_date}")
+
+    for case in case_items:
+        case_id = case.get("id", "<no-id>")
+        _register_id("cases", case_id, state.seen_ids, state.errors)
+        if _id_not_normalized(case_id):
+            state.errors.append(f"cases.{case_id}: imported id was not normalized")
+        _validate_price("cases", case, state.errors, state.warnings)
+        if not case.get("brand"):
+            state.errors.append(f"cases.{case_id}: missing brand")
+        if not case.get("motherboard_support"):
+            state.warnings.append(f"cases.{case_id}: no motherboard_support")
+        if not case.get("gpu_length_mm"):
+            state.warnings.append(f"cases.{case_id}: no gpu_length_mm")
+        if not _valid_fan_mounts(case.get("fan_mounts")):
+            state.errors.append(f"cases.{case_id}: invalid fan_mounts={case.get('fan_mounts')}")
+        if case.get("psu_length_mm") not in (None, ""):
+            psu_length_mm = case.get("psu_length_mm")
+            if isinstance(psu_length_mm, bool) or not isinstance(psu_length_mm, int) or not 80 <= psu_length_mm <= 500:
+                state.errors.append(f"cases.{case_id}: invalid psu_length_mm={psu_length_mm}")
+        if case.get("psu_length_recommended_mm") not in (None, ""):
+            recommended_mm = case.get("psu_length_recommended_mm")
+            if isinstance(recommended_mm, bool) or not isinstance(recommended_mm, int) or not 80 <= recommended_mm <= 500:
+                state.errors.append(f"cases.{case_id}: invalid psu_length_recommended_mm={recommended_mm}")
+            elif case.get("psu_length_mm") and recommended_mm > case.get("psu_length_mm"):
+                state.errors.append(
+                    f"cases.{case_id}: psu_length_recommended_mm={recommended_mm} "
+                    f"exceeds psu_length_mm={case.get('psu_length_mm')}"
+                )
+        if "psu_length_condition" in case and not str(case.get("psu_length_condition") or "").strip():
+            state.errors.append(f"cases.{case_id}: empty psu_length_condition")
+
+    missing_case_prices = [
+        case.get("id", "<no-id>") for case in case_items if case.get("price_cny") is None
+    ]
+    if missing_case_prices:
+        sample = ", ".join(missing_case_prices[:5])
+        state.warnings.append(
+            f"cases: {len(missing_case_prices)}/{len(case_items)} missing price_cny"
+            + (f" (sample: {sample})" if sample else "")
+        )
+    state.coverage_rows.extend(_coverage_rows("cases", case_items))
+    return case_items
+
+
+def _append_optional_dataset_warning(label, field, missing_items, total, state):
+    if not missing_items:
+        return
+    sample = ", ".join(missing_items[:5])
+    state.warnings.append(
+        f"{label}: {len(missing_items)}/{total} missing {field}"
+        + (f" (sample: {sample})" if sample else "")
+    )
+
+
+def _validate_displays(state):
+    displays_path = DATA / "displays.yaml"
+    if not displays_path.exists():
+        state.notes.append("displays.yaml: optional explicit monitor database missing")
+        return
+
+    with displays_path.open("r", encoding="utf-8") as file:
+        displays = yaml.safe_load(file) or {}
+    display_items = displays.get("displays", [])
+    state.counts["displays"] = len(display_items)
+    missing_display_prices = []
+    missing_display_refresh = []
+    missing_display_brand = []
+    display_metadata_date = (displays.get("metadata") or {}).get("price_date")
+    if display_metadata_date and not _valid_iso_date(str(display_metadata_date)):
+        state.errors.append(f"displays.metadata.price_date invalid: {display_metadata_date}")
+
+    for item in display_items:
+        item_id = item.get("id", "<no-id>")
+        _register_id("displays", item_id, state.seen_ids, state.errors)
+        missing = {"id", "model", "resolution"} - set(item.keys())
+        if missing:
+            state.errors.append(f"displays.{item_id}: missing fields {missing}")
+        if not item.get("brand"):
+            missing_display_brand.append(item_id)
+        _validate_price("displays", item, state.errors, state.warnings)
+        price_status = item.get("price_status", "")
+        if price_status != "needs_market_quote" and item.get("price_cny") is None:
+            missing_display_prices.append(item_id)
+        if not item.get("refresh_rate_hz"):
+            missing_display_refresh.append(item_id)
+        refresh_hz = _parse_int(item.get("refresh_rate_hz"))
+        if refresh_hz and (refresh_hz < 30 or refresh_hz > 1000):
+            state.errors.append(f"displays.{item_id}: implausible refresh_rate_hz={refresh_hz}")
+        explicit_refresh = _explicit_display_refresh_hz(item)
+        if explicit_refresh and refresh_hz and explicit_refresh != refresh_hz:
+            state.errors.append(
+                f"displays.{item_id}: refresh_rate_hz={refresh_hz} "
+                f"conflicts with explicit model token {explicit_refresh}"
+            )
+        explicit_size = _explicit_display_size_inch(item)
+        if explicit_size and item.get("size_inch"):
+            if abs(float(item.get("size_inch")) - explicit_size) > 0.6:
+                state.errors.append(
+                    f"displays.{item_id}: size_inch={item.get('size_inch')} "
+                    f"conflicts with explicit model token {explicit_size}"
+                )
+
+    total = len(display_items)
+    _append_optional_dataset_warning(
+        "displays", "price_cny", missing_display_prices, total, state
+    )
+    _append_optional_dataset_warning(
+        "displays", "refresh_rate_hz", missing_display_refresh, total, state
+    )
+    _append_optional_dataset_warning(
+        "displays", "brand", missing_display_brand, total, state
+    )
+    state.coverage_rows.extend(_coverage_rows("displays", display_items))
+
+
+def _valid_fps_range(value):
+    return (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(isinstance(item, (int, float)) for item in value)
+        and value[0] > 0
+        and value[1] >= value[0]
+    )
+
+
+def _validate_game_fps(state):
+    game_fps_path = DATA / "game_fps.yaml"
+    if not game_fps_path.exists():
+        state.errors.append("game_fps.yaml: missing game FPS reference table")
+        return
+
+    with game_fps_path.open("r", encoding="utf-8") as file:
+        game_fps = yaml.safe_load(file) or {}
+    game_ids = {game.get("id") for game in game_fps.get("games", []) if game.get("id")}
+    if not game_ids:
+        state.errors.append("game_fps.yaml: no games")
+    required_fps_fields = {
+        "game", "resolution", "preset", "cpu", "gpu", "avg_fps",
+        "confidence", "source_title", "source_date", "source_type",
+    }
+    for index, row in enumerate(game_fps.get("benchmarks", []), start=1):
+        prefix = f"game_fps.benchmarks[{index}]"
+        missing = required_fps_fields - set(row)
+        if missing:
+            state.errors.append(f"{prefix}: missing fields {missing}")
+        if row.get("game") not in game_ids:
+            state.errors.append(f"{prefix}: unknown game {row.get('game')}")
+        if row.get("source_type") == "public_fps_prediction" and row.get("confidence") == "high":
+            state.errors.append(f"{prefix}: public prediction confidence must not be high")
+        if not row.get("p1_low_fps") and not row.get("fps_range"):
+            state.errors.append(f"{prefix}: missing either p1_low_fps or fps_range")
+        for field_name in ("avg_fps", "p1_low_fps", "fps_range", "base_fps"):
+            if field_name in row and not _valid_fps_range(row.get(field_name)):
+                state.errors.append(f"{prefix}: invalid {field_name}={row.get(field_name)}")
+    state.counts["game_fps_samples"] = len(game_fps.get("benchmarks", []))
+
+
+def _report_validation(lib, case_items, state):
+    if state.errors:
+        print("VALIDATION FAILED")
+        for error in state.errors:
+            print(f"  ❌ {error}")
+        for warning in state.warnings:
+            print(f"  ⚠️ {warning}")
+        return 1
+
+    print("component library validation OK")
+    print(f"sections: {', '.join(REQUIRED_SECTIONS)} + cases")
+    for section, count in state.counts.items():
+        print(f"  {section}: {count} items")
+
+    status_counts = {}
+    for section in REQUIRED_SECTIONS:
+        for item in lib.get(section, []):
+            status = item.get("price_status", "unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+    for item in case_items:
+        status = item.get("price_status", "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    print(f"price status counts: {status_counts}")
+
+    if state.coverage_rows:
+        print("\nfield coverage (raw/effective):")
+        for row in state.coverage_rows:
+            print(f"  {row}")
+    if state.warnings:
+        print(f"\nwarnings ({len(state.warnings)}):")
+        for warning in state.warnings:
+            print(f"  ⚠️ {warning}")
+    if state.notes:
+        print(f"\nnon-blocking notes ({len(state.notes)}):")
+        for note in state.notes:
+            print(f"  ℹ️ {note}")
+    return 0
+
+
+def main():
+    state = ValidationState()
+
     comp_path = DATA / "components.yaml"
     if not comp_path.exists():
         print(f"FAIL: {comp_path} not found")
@@ -263,173 +642,8 @@ def main():
     with comp_path.open("r", encoding="utf-8") as f:
         lib = yaml.safe_load(f) or {}
 
-    metadata_date = (lib.get("metadata") or {}).get("price_date")
-    if metadata_date and not _valid_iso_date(str(metadata_date)):
-        errors.append(f"components.metadata.price_date invalid: {metadata_date}")
+    _validate_component_sections(lib, state)
 
-    for section in REQUIRED_SECTIONS:
-        raw_items = lib.get(section)
-        if not isinstance(raw_items, list) or not raw_items:
-            errors.append(f"{section}: missing or empty section")
-        items = raw_items if isinstance(raw_items, list) else []
-        counts[section] = len(items)
-        required = REQUIRED_FIELDS.get(section, set())
-
-        for item in items:
-            item_id = item.get("id", "<no-id>")
-            _register_id(section, item_id, seen_ids, errors)
-            if _id_not_normalized(item_id):
-                errors.append(f"{section}.{item_id}: imported id was not normalized")
-            missing = required - set(item.keys())
-            if missing:
-                errors.append(f"{section}.{item_id}: missing fields {missing}")
-
-            _validate_price(section, item, errors, warnings)
-            if OBVIOUS_MODEL_TYPO_RE.search(str(item.get("model") or "")):
-                errors.append(f"{section}.{item_id}: obvious model-family spelling error")
-            if section == "cpus":
-                consistency_error = _check_cpu_vendor_consistency(item)
-                if consistency_error:
-                    errors.append(f"{section}.{item_id}: {consistency_error}")
-            if section == "motherboards":
-                explicit_chipset = _explicit_motherboard_chipset(item)
-                chipset = _canonical_motherboard_chipset(item.get("chipset"))
-                if explicit_chipset and chipset and explicit_chipset != chipset:
-                    errors.append(
-                        f"{section}.{item_id}: chipset={chipset} conflicts with model token {explicit_chipset}"
-                    )
-                memory_freq_max = item.get("memory_freq_max")
-                if memory_freq_max not in (None, ""):
-                    if isinstance(memory_freq_max, bool) or not isinstance(memory_freq_max, int) or not 1600 <= memory_freq_max <= 12000:
-                        errors.append(f"{section}.{item_id}: invalid memory_freq_max={memory_freq_max}")
-            if section == "gpus" and item.get("length_mm"):
-                try:
-                    gpu_length = int(item.get("length_mm"))
-                    if gpu_length > 450 or gpu_length < 120:
-                        errors.append(f"{section}.{item_id}: impossible length_mm={item.get('length_mm')}")
-                except (TypeError, ValueError):
-                    errors.append(f"{section}.{item_id}: invalid length_mm={item.get('length_mm')}")
-            if section == "gpus":
-                memory_type = str(item.get("memory_type") or "").strip().upper()
-                if memory_type and memory_type not in VALID_GPU_MEMORY_TYPES:
-                    errors.append(f"{section}.{item_id}: invalid memory_type={item.get('memory_type')}")
-                inferred_vram = infer_gpu_vram(item)
-                current_vram = item.get("vram_gb")
-                if inferred_vram and current_vram:
-                    try:
-                        if int(current_vram) != int(inferred_vram):
-                            errors.append(
-                                f"{section}.{item_id}: vram_gb={current_vram} conflicts with model token {inferred_vram}GB"
-                            )
-                    except (TypeError, ValueError):
-                        errors.append(f"{section}.{item_id}: invalid vram_gb={current_vram}")
-                connectors = item.get("power_connectors") or []
-                if "16pin" in connectors and "6pin" in connectors:
-                    errors.append(
-                        f"{section}.{item_id}: impossible mixed 16pin and 6pin connector data"
-                    )
-            if section == "memory":
-                inferred_capacity = infer_memory_capacity_gb(item)
-                inferred_modules = infer_memory_module_count(item)
-                if inferred_capacity and item.get("capacity_gb") != inferred_capacity:
-                    errors.append(
-                        f"{section}.{item_id}: capacity_gb={item.get('capacity_gb')} "
-                        f"conflicts with model-inferred {inferred_capacity}GB"
-                    )
-                if inferred_modules and item.get("module_count") not in (None, inferred_modules):
-                    errors.append(
-                        f"{section}.{item_id}: module_count={item.get('module_count')} "
-                        f"conflicts with model-inferred {inferred_modules}"
-                    )
-                timing = item.get("timing")
-                if timing and not re.fullmatch(r"C(?:1[0-9]|[2-7][0-9]|80)", str(timing).upper()):
-                    errors.append(f"{section}.{item_id}: invalid timing={timing}")
-            if section == "storage":
-                inferred_capacity = infer_capacity_gb(item)
-                raw_capacity_tb = item.get("capacity_tb")
-                if inferred_capacity and raw_capacity_tb:
-                    try:
-                        raw_capacity_gb = float(raw_capacity_tb) * 1024
-                    except (TypeError, ValueError):
-                        errors.append(f"{section}.{item_id}: invalid capacity_tb={raw_capacity_tb}")
-                        raw_capacity_gb = float(inferred_capacity)
-                    tolerance_gb = max(32.0, float(inferred_capacity) * 0.10)
-                    if abs(raw_capacity_gb - float(inferred_capacity)) > tolerance_gb:
-                        errors.append(
-                            f"{section}.{item_id}: capacity_tb={raw_capacity_tb} "
-                            f"conflicts with model-inferred {inferred_capacity}GB"
-                        )
-                if "dram_cache" in item and not isinstance(item.get("dram_cache"), bool):
-                    errors.append(f"{section}.{item_id}: invalid dram_cache={item.get('dram_cache')}")
-                if item.get("dram_cache_mb") not in (None, ""):
-                    dram_cache_mb = item.get("dram_cache_mb")
-                    if isinstance(dram_cache_mb, bool) or not isinstance(dram_cache_mb, int) or not 1 <= dram_cache_mb <= 32768:
-                        errors.append(f"{section}.{item_id}: invalid dram_cache_mb={dram_cache_mb}")
-                    if item.get("dram_cache") is not True:
-                        errors.append(f"{section}.{item_id}: dram_cache_mb requires dram_cache=true")
-            if section == "coolers":
-                inferred_type = infer_cooler_type(item)
-                raw_type = str(item.get("type") or "").lower()
-                if inferred_type == "liquid" and raw_type not in {"liquid", "water", "水冷"}:
-                    errors.append(f"{section}.{item_id}: type={item.get('type')} conflicts with model-inferred liquid cooler")
-            if section == "psus" and item.get("length_mm") not in (None, ""):
-                length_mm = item.get("length_mm")
-                if isinstance(length_mm, bool) or not isinstance(length_mm, int) or not 80 <= length_mm <= 300:
-                    errors.append(f"{section}.{item_id}: invalid length_mm={length_mm}")
-            if section == "psus" and item.get("form_factor") not in (None, ""):
-                if item.get("form_factor") not in {"ATX", "SFX", "SFX-L", "FLEX", "TFX"}:
-                    errors.append(f"{section}.{item_id}: invalid form_factor={item.get('form_factor')}")
-            if section == "fans":
-                if CPU_AIR_COOLER_RE.search(str(item.get("model", ""))):
-                    errors.append(f"{section}.{item_id}: CPU/memory cooler classified as fan")
-                if item.get("fan_type") not in VALID_FAN_TYPES:
-                    errors.append(f"{section}.{item_id}: invalid fan_type={item.get('fan_type')}")
-                if item.get("blade_direction") and item.get("blade_direction") not in VALID_BLADE_DIRECTIONS:
-                    errors.append(f"{section}.{item_id}: invalid blade_direction={item.get('blade_direction')}")
-                if item.get("has_screen") and item.get("rgb") is not True:
-                    errors.append(f"{section}.{item_id}: screen fan must be rgb=true")
-                if item.get("fan_type") == "aio_frame" and item.get("default_recommend") is not False:
-                    errors.append(f"{section}.{item_id}: aio_frame must not be default_recommend")
-                accessory = bool(FAN_ACCESSORY_RE.search(str(item.get("model", "")).strip()))
-                if accessory and item.get("fan_type") != "accessory":
-                    errors.append(f"{section}.{item_id}: accessory-only variant classified as fan")
-                if item.get("fan_type") == "accessory" and item.get("default_recommend") is not False:
-                    errors.append(f"{section}.{item_id}: accessory must not be default_recommend")
-                model = str(item.get("model", ""))
-                explicit_black = bool(BLACK_VARIANT_RE.search(model))
-                explicit_white = bool(WHITE_VARIANT_RE.search(model))
-                mixed_color_label = "黑白" in model or "白黑" in model
-                if not mixed_color_label and explicit_black != explicit_white:
-                    expected_color = "black" if explicit_black else "white"
-                    if str(item.get("color") or "").lower() != expected_color:
-                        errors.append(
-                            f"{section}.{item_id}: color={item.get('color')} "
-                            f"conflicts with explicit {expected_color} model token"
-                        )
-                if item.get("size_mm"):
-                    size_mm = _parse_int(item.get("size_mm"))
-                    if size_mm < 80 or size_mm > 220:
-                        errors.append(f"{section}.{item_id}: invalid size_mm={item.get('size_mm')}")
-
-        for field in sorted(WARN_FIELDS.get(section, set())):
-            missing_items = [item.get("id", "<no-id>") for item in items if not item.get(field)]
-            if missing_items:
-                sample = ", ".join(missing_items[:5])
-                warnings.append(
-                    f"{section}: {len(missing_items)}/{len(items)} missing or empty {field}"
-                    + (f" (sample: {sample})" if sample else "")
-                )
-        for field in sorted(NOTE_FIELDS.get(section, set())):
-            missing_items = [item.get("id", "<no-id>") for item in items if not item.get(field)]
-            if missing_items:
-                sample = ", ".join(missing_items[:5])
-                notes.append(
-                    f"{section}: {len(missing_items)}/{len(items)} missing or empty {field}"
-                    + (f" (sample: {sample})" if sample else "")
-                )
-        coverage_rows.extend(_coverage_rows(section, items))
-
-    # Load cases.yaml
     cases_path = DATA / "cases.yaml"
     if not cases_path.exists():
         print(f"FAIL: {cases_path} not found")
@@ -438,195 +652,10 @@ def main():
     with cases_path.open("r", encoding="utf-8") as f:
         cases = yaml.safe_load(f) or {}
 
-    case_items = cases.get("cases", [])
-    if not isinstance(case_items, list) or not case_items:
-        errors.append("cases: missing or empty section")
-        case_items = []
-    counts["cases"] = len(case_items)
-
-    case_metadata_date = (cases.get("metadata") or {}).get("cutoff_date")
-    if case_metadata_date and not _valid_iso_date(str(case_metadata_date)):
-        errors.append(f"cases.metadata.cutoff_date invalid: {case_metadata_date}")
-
-    for case in case_items:
-        case_id = case.get("id", "<no-id>")
-        _register_id("cases", case_id, seen_ids, errors)
-        if _id_not_normalized(case_id):
-            errors.append(f"cases.{case_id}: imported id was not normalized")
-        _validate_price("cases", case, errors, warnings)
-        if not case.get("brand"):
-            errors.append(f"cases.{case_id}: missing brand")
-        if not case.get("motherboard_support"):
-            warnings.append(f"cases.{case_id}: no motherboard_support")
-        if not case.get("gpu_length_mm"):
-            warnings.append(f"cases.{case_id}: no gpu_length_mm")
-        if not _valid_fan_mounts(case.get("fan_mounts")):
-            errors.append(f"cases.{case_id}: invalid fan_mounts={case.get('fan_mounts')}")
-        if case.get("psu_length_mm") not in (None, ""):
-            psu_length_mm = case.get("psu_length_mm")
-            if isinstance(psu_length_mm, bool) or not isinstance(psu_length_mm, int) or not 80 <= psu_length_mm <= 500:
-                errors.append(f"cases.{case_id}: invalid psu_length_mm={psu_length_mm}")
-        if case.get("psu_length_recommended_mm") not in (None, ""):
-            recommended_mm = case.get("psu_length_recommended_mm")
-            if isinstance(recommended_mm, bool) or not isinstance(recommended_mm, int) or not 80 <= recommended_mm <= 500:
-                errors.append(f"cases.{case_id}: invalid psu_length_recommended_mm={recommended_mm}")
-            elif case.get("psu_length_mm") and recommended_mm > case.get("psu_length_mm"):
-                errors.append(
-                    f"cases.{case_id}: psu_length_recommended_mm={recommended_mm} "
-                    f"exceeds psu_length_mm={case.get('psu_length_mm')}"
-                )
-        if "psu_length_condition" in case and not str(case.get("psu_length_condition") or "").strip():
-            errors.append(f"cases.{case_id}: empty psu_length_condition")
-    missing_case_prices = [case.get("id", "<no-id>") for case in case_items if case.get("price_cny") is None]
-    if missing_case_prices:
-        sample = ", ".join(missing_case_prices[:5])
-        warnings.append(
-            f"cases: {len(missing_case_prices)}/{len(case_items)} missing price_cny"
-            + (f" (sample: {sample})" if sample else "")
-        )
-    coverage_rows.extend(_coverage_rows("cases", case_items))
-
-    displays_path = DATA / "displays.yaml"
-    if displays_path.exists():
-        with displays_path.open("r", encoding="utf-8") as f:
-            displays = yaml.safe_load(f) or {}
-        display_items = displays.get("displays", [])
-        counts["displays"] = len(display_items)
-        missing_display_prices = []
-        missing_display_refresh = []
-        missing_display_brand = []
-        display_metadata_date = (displays.get("metadata") or {}).get("price_date")
-        if display_metadata_date and not _valid_iso_date(str(display_metadata_date)):
-            errors.append(f"displays.metadata.price_date invalid: {display_metadata_date}")
-        for item in display_items:
-            item_id = item.get("id", "<no-id>")
-            _register_id("displays", item_id, seen_ids, errors)
-            missing = {"id", "model", "resolution"} - set(item.keys())
-            if missing:
-                errors.append(f"displays.{item_id}: missing fields {missing}")
-            if not item.get("brand"):
-                missing_display_brand.append(item_id)
-            _validate_price("displays", item, errors, warnings)
-            price_status = item.get("price_status", "")
-            if price_status != "needs_market_quote" and item.get("price_cny") is None:
-                missing_display_prices.append(item_id)
-            if not item.get("refresh_rate_hz"):
-                missing_display_refresh.append(item_id)
-            refresh_hz = _parse_int(item.get("refresh_rate_hz"))
-            if refresh_hz and (refresh_hz < 30 or refresh_hz > 1000):
-                errors.append(f"displays.{item_id}: implausible refresh_rate_hz={refresh_hz}")
-            explicit_refresh = _explicit_display_refresh_hz(item)
-            if explicit_refresh and refresh_hz and explicit_refresh != refresh_hz:
-                errors.append(
-                    f"displays.{item_id}: refresh_rate_hz={refresh_hz} "
-                    f"conflicts with explicit model token {explicit_refresh}"
-                )
-            explicit_size = _explicit_display_size_inch(item)
-            if explicit_size and item.get("size_inch"):
-                if abs(float(item.get("size_inch")) - explicit_size) > 0.6:
-                    errors.append(
-                        f"displays.{item_id}: size_inch={item.get('size_inch')} "
-                        f"conflicts with explicit model token {explicit_size}"
-                    )
-        if missing_display_prices:
-            sample = ", ".join(missing_display_prices[:5])
-            warnings.append(
-                f"displays: {len(missing_display_prices)}/{len(display_items)} missing price_cny"
-                + (f" (sample: {sample})" if sample else "")
-            )
-        if missing_display_refresh:
-            sample = ", ".join(missing_display_refresh[:5])
-            warnings.append(
-                f"displays: {len(missing_display_refresh)}/{len(display_items)} missing refresh_rate_hz"
-                + (f" (sample: {sample})" if sample else "")
-            )
-        if missing_display_brand:
-            sample = ", ".join(missing_display_brand[:5])
-            warnings.append(
-                f"displays: {len(missing_display_brand)}/{len(display_items)} missing brand"
-                + (f" (sample: {sample})" if sample else "")
-            )
-        coverage_rows.extend(_coverage_rows("displays", display_items))
-    else:
-        notes.append("displays.yaml: optional explicit monitor database missing")
-
-    game_fps_path = DATA / "game_fps.yaml"
-    if not game_fps_path.exists():
-        errors.append("game_fps.yaml: missing game FPS reference table")
-    else:
-        with game_fps_path.open("r", encoding="utf-8") as f:
-            game_fps = yaml.safe_load(f) or {}
-        game_ids = {game.get("id") for game in game_fps.get("games", []) if game.get("id")}
-        if not game_ids:
-            errors.append("game_fps.yaml: no games")
-        required_fps_fields = {
-            "game", "resolution", "preset", "cpu", "gpu", "avg_fps",
-            "confidence", "source_title", "source_date", "source_type",
-        }
-        for index, row in enumerate(game_fps.get("benchmarks", []), start=1):
-            prefix = f"game_fps.benchmarks[{index}]"
-            missing = required_fps_fields - set(row)
-            if missing:
-                errors.append(f"{prefix}: missing fields {missing}")
-            if row.get("game") not in game_ids:
-                errors.append(f"{prefix}: unknown game {row.get('game')}")
-            if row.get("source_type") == "public_fps_prediction" and row.get("confidence") == "high":
-                errors.append(f"{prefix}: public prediction confidence must not be high")
-            if not row.get("p1_low_fps") and not row.get("fps_range"):
-                errors.append(f"{prefix}: missing either p1_low_fps or fps_range")
-            for field in ("avg_fps", "p1_low_fps", "fps_range", "base_fps"):
-                if field not in row:
-                    continue
-                value = row.get(field)
-                if (
-                    not isinstance(value, list)
-                    or len(value) != 2
-                    or not all(isinstance(item, (int, float)) for item in value)
-                    or value[0] <= 0
-                    or value[1] < value[0]
-                ):
-                    errors.append(f"{prefix}: invalid {field}={value}")
-        counts["game_fps_samples"] = len(game_fps.get("benchmarks", []))
-
-    # Report
-    if errors:
-        print("VALIDATION FAILED")
-        for e in errors:
-            print(f"  ❌ {e}")
-        for w in warnings:
-            print(f"  ⚠️ {w}")
-        return 1
-
-    print("component library validation OK")
-    print(f"sections: {', '.join(REQUIRED_SECTIONS)} + cases")
-    for sec, count in counts.items():
-        print(f"  {sec}: {count} items")
-
-    status_counts = {}
-    for section in REQUIRED_SECTIONS:
-        for item in lib.get(section, []):
-            ps = item.get("price_status", "unknown")
-            status_counts[ps] = status_counts.get(ps, 0) + 1
-    for item in case_items:
-        ps = item.get("price_status", "unknown")
-        status_counts[ps] = status_counts.get(ps, 0) + 1
-    print(f"price status counts: {status_counts}")
-
-    if coverage_rows:
-        print("\nfield coverage (raw/effective):")
-        for row in coverage_rows:
-            print(f"  {row}")
-
-    if warnings:
-        print(f"\nwarnings ({len(warnings)}):")
-        for w in warnings:
-            print(f"  ⚠️ {w}")
-    if notes:
-        print(f"\nnon-blocking notes ({len(notes)}):")
-        for n in notes:
-            print(f"  ℹ️ {n}")
-
-    return 0
+    case_items = _validate_cases(cases, state)
+    _validate_displays(state)
+    _validate_game_fps(state)
+    return _report_validation(lib, case_items, state)
 
 
 def _has_value(item, field):

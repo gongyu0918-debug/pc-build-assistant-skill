@@ -14,6 +14,7 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
 from statistics import median
@@ -49,6 +50,45 @@ CATEGORIES = {
 CORE_CATEGORIES = ("cpu", "mb", "memory", "storage", "gpu", "cooler", "psu", "case")
 DISPLAY_CATEGORIES = {"display", "monitor"}
 FAN_CATEGORIES = {"fan"}
+
+
+@dataclass(frozen=True)
+class QuerySpec:
+    category: str | None = None
+    budget: int | None = None
+    platform: str | None = None
+    color: str | None = None
+    rgb: bool | None = None
+    limit: int = 20
+    has_price_only: bool = True
+    showcase: bool | None = None
+    include_legacy: bool = False
+    sort: str = "asc"
+    socket: str | None = None
+    chipset: str | None = None
+    memory_gen: str | None = None
+    form_factor: str | None = None
+    max_length: int | None = None
+    gpu_cooling: str | None = "air"
+    gpu_chip: str | None = None
+    min_vram: int | None = None
+    min_capacity: int | None = None
+    include_workstation_gpu: bool = False
+    resolution: str | None = None
+    min_refresh: int | None = None
+    air_flow: str | None = None
+    dust_filter: bool | None = None
+    fan_size: int | None = None
+    blade_direction: str | None = None
+    linkable: bool | None = None
+    screen: bool | None = None
+    radiator_bundle: int | None = None
+    fan_type: str | None = None
+    model: str | None = None
+    item_id: str | None = None
+    max_capacity: int | None = None
+    pcie_generation: int | None = None
+    dram_cache: bool | None = None
 
 DEDUPE_SPEC_FIELDS = {
     "cpu": ("socket", "power_w"),
@@ -1039,6 +1079,151 @@ def _price_freshness(item, as_of=None):
     return {"price_age_days": age_days, "price_stale": age_days > 14}
 
 
+def _matches_common_candidate(item, spec):
+    if not _matches_identity(item, model=spec.model, item_id=spec.item_id):
+        return False
+    if spec.has_price_only and not _has_usable_price(item) and not (spec.model or spec.item_id):
+        return False
+    if spec.budget and item.get("price_cny") and _parse_num(item.get("price_cny")) > spec.budget:
+        return False
+    return True
+
+
+def _query_cases(spec):
+    results = []
+    for item in load_cases().get("cases", []):
+        if not _matches_common_candidate(item, spec):
+            continue
+        if not spec.include_legacy and not item.get("motherboard_support") and not (spec.model or spec.item_id):
+            continue
+        if not _matches_form_factor("cases", item, spec.form_factor):
+            continue
+        if not _matches_max_length("cases", item, spec.max_length):
+            continue
+        if spec.color and not color_matches(item, spec.color):
+            continue
+        if spec.showcase is True and not _effective_showcase(item):
+            continue
+        if spec.air_flow and not _matches_air_flow(item, spec.air_flow):
+            continue
+        if not _matches_optional_bool(item, "has_dust_filter", spec.dust_filter):
+            continue
+        results.append(_summarize_case(item))
+    _sort_results(results, spec.sort, "case")
+    return dedupe_results("case", results)[:spec.limit]
+
+
+def _query_displays(spec):
+    results = []
+    for item in load_displays().get("displays", []):
+        if not _matches_common_candidate(item, spec):
+            continue
+        if not _matches_resolution(item, spec.resolution):
+            continue
+        if not _matches_min_refresh(item, spec.min_refresh):
+            continue
+        if spec.color and not color_matches(item, spec.color):
+            continue
+        result = dict(item)
+        if not result.get("brand"):
+            result["brand"] = infer_display_brand(result)
+        results.append(result)
+    _sort_results(results, spec.sort, "display")
+    return dedupe_results("display", results)[:spec.limit]
+
+
+def _query_fans(spec):
+    results = []
+    for item in load_components().get("fans", []):
+        if not _matches_common_candidate(item, spec):
+            continue
+        if is_fan_accessory(item) and spec.fan_type != "accessory":
+            continue
+        if not spec.include_legacy and item.get("default_recommend") is False and not (spec.model or spec.item_id):
+            continue
+        if spec.color and not color_matches(item, spec.color):
+            continue
+        if not rgb_matches(item, spec.rgb):
+            continue
+        if not _matches_fan_size(item, spec.fan_size):
+            continue
+        if spec.blade_direction and spec.blade_direction != "any" and item.get("blade_direction") != spec.blade_direction:
+            continue
+        if not _matches_optional_bool(item, "is_linkable", spec.linkable):
+            continue
+        if not _matches_optional_bool(item, "has_screen", spec.screen):
+            continue
+        if not _matches_radiator_bundle(item, spec.radiator_bundle):
+            continue
+        if not _matches_fan_type(item, spec.fan_type):
+            continue
+        results.append(item)
+    _sort_results(results, spec.sort, "fan")
+    return dedupe_results("fan", results)[:spec.limit]
+
+
+def _query_core_components(spec):
+    lib = load_components()
+    categories_to_search = [CATEGORIES[spec.category]] if spec.category and spec.category in CORE_CATEGORIES \
+        else [CATEGORIES[k] for k in CORE_CATEGORIES if k != "case"]
+    results = []
+    for sec in categories_to_search:
+        for item in lib.get(sec, []):
+            if not _matches_common_candidate(item, spec):
+                continue
+            if not spec.include_legacy and not (spec.model or spec.item_id):
+                in_scope = in_current_scope(sec, item, include_workstation_gpu=spec.include_workstation_gpu)
+                if not in_scope and not _matches_explicit_legacy_scope(sec, item, spec.socket):
+                    continue
+            if spec.platform:
+                item_platform = item.get("platform", "").lower()
+                if item_platform and spec.platform.lower() not in item_platform:
+                    continue
+            if spec.socket and sec in ("cpus", "motherboards") and not _matches_socket(item, spec.socket):
+                continue
+            if spec.chipset and sec == "motherboards" and compact_text(spec.chipset) not in compact_text(item.get("chipset")):
+                continue
+            if spec.memory_gen and not _matches_memory_gen(sec, item, spec.memory_gen):
+                continue
+            if spec.form_factor and not _matches_form_factor(sec, item, spec.form_factor):
+                continue
+            if not _matches_max_length(sec, item, spec.max_length):
+                continue
+            if sec == "gpus":
+                if spec.gpu_chip and not _matches_gpu_chip(item, spec.gpu_chip):
+                    continue
+                if spec.min_vram and _parse_int(infer_gpu_vram(item)) < _parse_int(spec.min_vram):
+                    continue
+                if spec.gpu_cooling and not (spec.model or spec.item_id) and infer_gpu_cooling(item) != spec.gpu_cooling:
+                    continue
+            if sec == "memory" and spec.min_capacity and _parse_int(item.get("capacity_gb")) < _parse_int(spec.min_capacity):
+                continue
+            if sec == "storage" and spec.min_capacity and _parse_int(item.get("capacity_gb")) < _parse_int(spec.min_capacity):
+                continue
+            if sec == "storage" and spec.pcie_generation and _parse_int(item.get("pcie_generation")) != _parse_int(spec.pcie_generation):
+                continue
+            if sec == "storage" and not _matches_optional_bool(item, "dram_cache", spec.dram_cache):
+                continue
+            if (sec in ("memory", "storage") and spec.max_capacity
+                    and _parse_int(item.get("capacity_gb")) > _capacity_upper_bound(sec, spec.max_capacity)):
+                continue
+            if spec.color and not color_matches(item, spec.color):
+                continue
+            if not rgb_matches(item, spec.rgb):
+                continue
+            results.append(item)
+
+    if spec.category:
+        if spec.model or spec.item_id:
+            results = keep_identity_matches_without_untrusted_prices(spec.category, results)
+        else:
+            results = filter_low_price_outliers(spec.category, results)
+            if spec.category == "gpu":
+                results = filter_ambiguous_gpu_skus(results, lib.get("gpus", []))
+    _sort_results(results, spec.sort, spec.category)
+    return dedupe_results(spec.category, results)[:spec.limit]
+
+
 def query(category=None, budget=None, platform=None, color=None,
           rgb=None, limit=20, has_price_only=True, showcase=None,
           include_legacy=False, sort="asc", socket=None, chipset=None,
@@ -1049,158 +1234,50 @@ def query(category=None, budget=None, platform=None, color=None,
           radiator_bundle=None, fan_type=None, model=None, item_id=None,
           max_capacity=None, pcie_generation=None, dram_cache=None):
     """查询配件。返回匹配的配件列表。"""
-    if gpu_cooling == "any":
-        gpu_cooling = None
-    results = []
-
+    spec = QuerySpec(
+        category=category,
+        budget=budget,
+        platform=platform,
+        color=color,
+        rgb=rgb,
+        limit=limit,
+        has_price_only=has_price_only,
+        showcase=showcase,
+        include_legacy=include_legacy,
+        sort=sort,
+        socket=socket,
+        chipset=chipset,
+        memory_gen=memory_gen,
+        form_factor=form_factor,
+        max_length=max_length,
+        gpu_cooling=None if gpu_cooling == "any" else gpu_cooling,
+        gpu_chip=gpu_chip,
+        min_vram=min_vram,
+        min_capacity=min_capacity,
+        include_workstation_gpu=include_workstation_gpu,
+        resolution=resolution,
+        min_refresh=min_refresh,
+        air_flow=air_flow,
+        dust_filter=dust_filter,
+        fan_size=fan_size,
+        blade_direction=blade_direction,
+        linkable=linkable,
+        screen=screen,
+        radiator_bundle=radiator_bundle,
+        fan_type=fan_type,
+        model=model,
+        item_id=item_id,
+        max_capacity=max_capacity,
+        pcie_generation=pcie_generation,
+        dram_cache=dram_cache,
+    )
     if category == "case":
-        # Query cases.yaml
-        cases_data = load_cases()
-        for item in cases_data.get("cases", []):
-            if not _matches_identity(item, model=model, item_id=item_id):
-                continue
-            if has_price_only and not _has_usable_price(item) and not (model or item_id):
-                continue
-            if not include_legacy and not item.get("motherboard_support") and not (model or item_id):
-                continue
-            if budget and item.get("price_cny") and _parse_num(item.get("price_cny")) > budget:
-                continue
-            if not _matches_form_factor("cases", item, form_factor):
-                continue
-            if not _matches_max_length("cases", item, max_length):
-                continue
-            if color and not color_matches(item, color):
-                continue
-            if showcase is True and not _effective_showcase(item):
-                continue
-            if air_flow and not _matches_air_flow(item, air_flow):
-                continue
-            if not _matches_optional_bool(item, "has_dust_filter", dust_filter):
-                continue
-            results.append(_summarize_case(item))
-        _sort_results(results, sort, "case")
-        return dedupe_results("case", results)[:limit]
-
+        return _query_cases(spec)
     if category in DISPLAY_CATEGORIES:
-        displays_data = load_displays()
-        for item in displays_data.get("displays", []):
-            if not _matches_identity(item, model=model, item_id=item_id):
-                continue
-            if has_price_only and not _has_usable_price(item) and not (model or item_id):
-                continue
-            if budget and item.get("price_cny") and _parse_num(item.get("price_cny")) > budget:
-                continue
-            if not _matches_resolution(item, resolution):
-                continue
-            if not _matches_min_refresh(item, min_refresh):
-                continue
-            if color and not color_matches(item, color):
-                continue
-            result = dict(item)
-            if not result.get("brand"):
-                result["brand"] = infer_display_brand(result)
-            results.append(result)
-        _sort_results(results, sort, "display")
-        return dedupe_results("display", results)[:limit]
-
+        return _query_displays(spec)
     if category in FAN_CATEGORIES:
-        lib = load_components()
-        for item in lib.get("fans", []):
-            if not _matches_identity(item, model=model, item_id=item_id):
-                continue
-            if is_fan_accessory(item) and fan_type != "accessory":
-                continue
-            if has_price_only and not _has_usable_price(item) and not (model or item_id):
-                continue
-            if not include_legacy and item.get("default_recommend") is False and not (model or item_id):
-                continue
-            if budget and item.get("price_cny") and _parse_num(item.get("price_cny")) > budget:
-                continue
-            if color and not color_matches(item, color):
-                continue
-            if not rgb_matches(item, rgb):
-                continue
-            if not _matches_fan_size(item, fan_size):
-                continue
-            if blade_direction and blade_direction != "any" and item.get("blade_direction") != blade_direction:
-                continue
-            if not _matches_optional_bool(item, "is_linkable", linkable):
-                continue
-            if not _matches_optional_bool(item, "has_screen", screen):
-                continue
-            if not _matches_radiator_bundle(item, radiator_bundle):
-                continue
-            if not _matches_fan_type(item, fan_type):
-                continue
-            results.append(item)
-        _sort_results(results, sort, "fan")
-        return dedupe_results("fan", results)[:limit]
-
-    # Query components.yaml
-    lib = load_components()
-    categories_to_search = [CATEGORIES[category]] if category and category in CORE_CATEGORIES \
-        else [CATEGORIES[k] for k in CORE_CATEGORIES if k != "case"]
-
-    for sec in categories_to_search:
-        for item in lib.get(sec, []):
-            if not _matches_identity(item, model=model, item_id=item_id):
-                continue
-            if has_price_only and not _has_usable_price(item) and not (model or item_id):
-                continue
-            if not include_legacy and not (model or item_id):
-                in_scope = in_current_scope(sec, item, include_workstation_gpu=include_workstation_gpu)
-                if not in_scope and not _matches_explicit_legacy_scope(sec, item, socket):
-                    continue
-            if budget and item.get("price_cny") and _parse_num(item.get("price_cny")) > budget:
-                continue
-            if platform:
-                item_platform = item.get("platform", "").lower()
-                if item_platform and platform.lower() not in item_platform:
-                    continue
-            if socket and sec in ("cpus", "motherboards") and not _matches_socket(item, socket):
-                continue
-            if chipset and sec == "motherboards" and compact_text(chipset) not in compact_text(item.get("chipset")):
-                continue
-            if memory_gen and not _matches_memory_gen(sec, item, memory_gen):
-                continue
-            if form_factor and not _matches_form_factor(sec, item, form_factor):
-                continue
-            if not _matches_max_length(sec, item, max_length):
-                continue
-            if sec == "gpus":
-                if gpu_chip and not _matches_gpu_chip(item, gpu_chip):
-                    continue
-                if min_vram and _parse_int(infer_gpu_vram(item)) < _parse_int(min_vram):
-                    continue
-                if gpu_cooling and not (model or item_id) and infer_gpu_cooling(item) != gpu_cooling:
-                    continue
-            if sec == "memory" and min_capacity and _parse_int(item.get("capacity_gb")) < _parse_int(min_capacity):
-                continue
-            if sec == "storage" and min_capacity and _parse_int(item.get("capacity_gb")) < _parse_int(min_capacity):
-                continue
-            if sec == "storage" and pcie_generation and _parse_int(item.get("pcie_generation")) != _parse_int(pcie_generation):
-                continue
-            if sec == "storage" and not _matches_optional_bool(item, "dram_cache", dram_cache):
-                continue
-            if (sec in ("memory", "storage") and max_capacity
-                    and _parse_int(item.get("capacity_gb")) > _capacity_upper_bound(sec, max_capacity)):
-                continue
-            if color and not color_matches(item, color):
-                continue
-            if not rgb_matches(item, rgb):
-                continue
-
-            results.append(item)
-
-    if category:
-        if model or item_id:
-            results = keep_identity_matches_without_untrusted_prices(category, results)
-        else:
-            results = filter_low_price_outliers(category, results)
-            if category == "gpu":
-                results = filter_ambiguous_gpu_skus(results, lib.get("gpus", []))
-    _sort_results(results, sort, category)
-    return dedupe_results(category, results)[:limit]
+        return _query_fans(spec)
+    return _query_core_components(spec)
 
 
 def _gpu_tier(item):
@@ -1618,7 +1695,7 @@ def display_extra(category, item):
     return ""
 
 
-def main():
+def _build_parser():
     parser = argparse.ArgumentParser(description="配件查询工具 (渐进式披露)", allow_abbrev=False)
     parser.add_argument("--category", choices=list(CATEGORIES.keys()) + ["all"],
                         default="all", help="配件品类")
@@ -1677,8 +1754,10 @@ def main():
     parser.add_argument("--include-legacy", action="store_true", help="包含旧平台/非当前推荐范围条目")
     parser.add_argument("--include-workstation-gpu", action="store_true",
                         help="包含 RTX PRO 6000 等工作站显卡；仅本地大模型/工作站超高预算场景使用")
-    args = parser.parse_args()
+    return parser
 
+
+def _validate_cli_args(parser, args):
     for name in (
         "budget", "max_length", "min_vram", "min_capacity", "max_capacity",
         "fan_size", "radiator_bundle", "min_refresh", "limit",
@@ -1693,63 +1772,50 @@ def main():
     ):
         parser.error("--min-capacity cannot exceed --max-capacity")
 
-    if args.category == "all":
-        grouped = query_all(
-            budget=args.budget,
-            platform=args.platform,
-            color=args.color,
-            rgb=(True if args.rgb == "yes" else False) if args.rgb else None,
-            limit=args.limit,
-            include_legacy=args.include_legacy,
-            sort=args.sort,
-            socket=args.socket,
-            chipset=args.chipset,
-            memory_gen=args.memory_gen,
-            form_factor=args.form_factor,
-            max_length=args.max_length,
-            gpu_cooling=args.gpu_cooling,
-            gpu_chip=args.gpu_chip,
-            min_vram=args.min_vram,
-            min_capacity=args.min_capacity,
-            max_capacity=args.max_capacity,
-            model=args.model,
-            item_id=args.item_id,
-            include_workstation_gpu=args.include_workstation_gpu,
-            showcase=args.showcase,
-            air_flow=args.air_flow,
-            dust_filter=(True if args.dust_filter == "yes" else False) if args.dust_filter else None,
-        )
-        if not args.detail:
-            output = {
-                category: (items if category == "case" else [summarize(r, category) for r in items])
-                for category, items in grouped.items()
-            }
-        else:
-            output = grouped
 
-        if args.json:
-            print(json.dumps(output, ensure_ascii=False, indent=2))
-            total = sum(len(items) for items in output.values())
-        else:
-            total = sum(len(items) for items in output.values())
-            print(f"查询结果: {total} 条，按品类分组" + (" (摘要模式, 用 --detail 看完整属性)" if not args.detail else ""))
-            for category, items in output.items():
-                print(f"[{DISPLAY_NAMES.get(category, category)}] {len(items)} 条")
-                for r in items:
-                    price = f"¥{r.get('price_cny','')}" if r.get("price_cny") else "待补价"
-                    color = r.get("colors", r.get("color", ""))
-                    showcase_tag = " [海景房]" if r.get("is_showcase") else ""
-                    extra = display_extra(category, r)
-                    stale_tag = " [价格超过14天]" if r.get("price_stale") else ""
-                    print(f"  {r.get('id',''):45s} {r.get('brand',''):10s} {r.get('model',''):35s} {price:>8s} {color} {extra} {showcase_tag}{stale_tag}")
-        return 0 if total else 2
+def _optional_bool(value):
+    if value == "yes":
+        return True
+    if value == "no":
+        return False
+    return None
 
-    results = query(
+
+def _run_grouped_query(args):
+    return query_all(
+        budget=args.budget,
+        platform=args.platform,
+        color=args.color,
+        rgb=_optional_bool(args.rgb),
+        limit=args.limit,
+        include_legacy=args.include_legacy,
+        sort=args.sort,
+        socket=args.socket,
+        chipset=args.chipset,
+        memory_gen=args.memory_gen,
+        form_factor=args.form_factor,
+        max_length=args.max_length,
+        gpu_cooling=args.gpu_cooling,
+        gpu_chip=args.gpu_chip,
+        min_vram=args.min_vram,
+        min_capacity=args.min_capacity,
+        max_capacity=args.max_capacity,
+        model=args.model,
+        item_id=args.item_id,
+        include_workstation_gpu=args.include_workstation_gpu,
+        showcase=args.showcase,
+        air_flow=args.air_flow,
+        dust_filter=_optional_bool(args.dust_filter),
+    )
+
+
+def _run_single_query(args):
+    return query(
         category=args.category,
         budget=args.budget,
         platform=args.platform,
         color=args.color,
-        rgb=(True if args.rgb == "yes" else False) if args.rgb else None,
+        rgb=_optional_bool(args.rgb),
         limit=args.limit,
         showcase=args.showcase if args.category == "case" else None,
         include_legacy=args.include_legacy,
@@ -1765,48 +1831,96 @@ def main():
         min_capacity=args.min_capacity,
         max_capacity=args.max_capacity,
         pcie_generation=args.pcie_generation,
-        dram_cache=(True if args.dram_cache == "yes" else False) if args.dram_cache else None,
+        dram_cache=_optional_bool(args.dram_cache),
         model=args.model,
         item_id=args.item_id,
         include_workstation_gpu=args.include_workstation_gpu,
         resolution=args.resolution,
         min_refresh=args.min_refresh,
         air_flow=args.air_flow if args.category == "case" else None,
-        dust_filter=(True if args.dust_filter == "yes" else False) if args.dust_filter else None,
+        dust_filter=_optional_bool(args.dust_filter),
         fan_size=args.fan_size if args.category == "fan" else None,
         blade_direction=args.blade_direction if args.category == "fan" else None,
-        linkable=(True if args.linkable == "yes" else False) if args.category == "fan" and args.linkable else None,
-        screen=(True if args.screen == "yes" else False) if args.category == "fan" and args.screen else None,
+        linkable=_optional_bool(args.linkable) if args.category == "fan" else None,
+        screen=_optional_bool(args.screen) if args.category == "fan" else None,
         radiator_bundle=args.radiator_bundle if args.category == "fan" else None,
         fan_type=args.fan_type if args.category == "fan" else None,
     )
 
-    # Progressive disclosure: summary by default, detail only with --detail
-    if not args.detail:
-        if args.category == "case":
-            output = results  # cases already summarized
-        else:
-            output = [summarize(r, args.category) for r in results]
-    else:
-        output = results
 
+def _grouped_output(grouped, detail):
+    if detail:
+        return grouped
+    return {
+        category: (items if category == "case" else [summarize(item, category) for item in items])
+        for category, items in grouped.items()
+    }
+
+
+def _single_output(results, category, detail):
+    if detail or category == "case":
+        return results
+    return [summarize(item, category) for item in results]
+
+
+def _print_result_row(category, item, *, detail=False):
+    if category == "case" or not detail:
+        price = f"¥{item['price_cny']}" if item.get("price_cny") else "待补价"
+        color = item.get("colors", item.get("color", ""))
+        showcase_tag = " [海景房]" if item.get("is_showcase") else ""
+        extra = display_extra(category, item)
+        stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
+        print(
+            f"  {item.get('id',''):45s} {item.get('brand',''):10s} "
+            f"{item.get('model',''):35s} {price:>8s} {color} {extra} "
+            f"{showcase_tag}{stale_tag}"
+        )
+        return
+    price = f"¥{item['price_cny']}" if item.get("price_cny") else "待补价"
+    stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
+    print(f"  {item['id']:45s} {item.get('brand',''):12s} {item.get('model',''):40s} {price:>8s}{stale_tag}")
+
+
+def _emit_grouped_output(output, args):
+    total = sum(len(items) for items in output.values())
     if args.json:
         print(json.dumps(output, ensure_ascii=False, indent=2))
+        return total
+    suffix = " (摘要模式, 用 --detail 看完整属性)" if not args.detail else ""
+    print(f"查询结果: {total} 条，按品类分组{suffix}")
+    for category, items in output.items():
+        print(f"[{DISPLAY_NAMES.get(category, category)}] {len(items)} 条")
+        for item in items:
+            _print_result_row(category, item, detail=args.detail)
+    return total
+
+
+def _emit_single_output(output, args):
+    if args.json:
+        print(json.dumps(output, ensure_ascii=False, indent=2))
+        return len(output)
+    suffix = " (摘要模式, 用 --detail 看完整属性)" if not args.detail else ""
+    print(f"查询结果: {len(output)} 条{suffix}")
+    for item in output:
+        _print_result_row(args.category, item, detail=args.detail)
+    return len(output)
+
+
+def main():
+    parser = _build_parser()
+    args = parser.parse_args()
+    _validate_cli_args(parser, args)
+
+    if args.category == "all":
+        output = _grouped_output(_run_grouped_query(args), args.detail)
+        return 0 if _emit_grouped_output(output, args) else 2
+
+    results = _run_single_query(args)
+    if not args.detail:
+        output = _single_output(results, args.category, args.detail)
     else:
-        print(f"查询结果: {len(output)} 条" + (" (摘要模式, 用 --detail 看完整属性)" if not args.detail else ""))
-        for r in output:
-            if args.category == "case" or not args.detail:
-                price = f"¥{r.get('price_cny','')}" if r.get("price_cny") else ""
-                color = r.get("colors", r.get("color", ""))
-                showcase_tag = " [海景房]" if r.get("is_showcase") else ""
-                extra = display_extra(args.category, r)
-                stale_tag = " [价格超过14天]" if r.get("price_stale") else ""
-                print(f"  {r.get('id',''):45s} {r.get('brand',''):10s} {r.get('model',''):35s} {price:>8s} {color} {extra} {showcase_tag}{stale_tag}")
-            else:
-                price = f"¥{r['price_cny']}" if r.get("price_cny") else "待补价"
-                stale_tag = " [价格超过14天]" if r.get("price_stale") else ""
-                print(f"  {r['id']:45s} {r.get('brand',''):12s} {r.get('model',''):40s} {price:>8s}{stale_tag}")
-    return 0 if output else 2
+        output = results
+    return 0 if _emit_single_output(output, args) else 2
 
 
 if __name__ == "__main__":
