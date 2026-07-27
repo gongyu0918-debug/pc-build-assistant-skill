@@ -1,13 +1,17 @@
 ---
 name: zhuangji-assistant-skill
-description: 中文市场台式机装机配置助手。用户要按预算和用途选购、升级或评估台式机硬件，询问装机 DIY、配置单、整机推荐、配置补全、搭配检查、兼容性、预算分配或硬件选择原理时使用。覆盖游戏和直播、本地 AI 与内容生产、开发与建模、外观和紧凑主机等场景。单独询问软件、游戏、agent 或教程使用方法时不要触发。使用离线配件库和程序化兼容检查，不凭记忆编型号、价格或兼容结论。
+description: 中文市场台式机装机配置助手。用户要按预算和用途选购、升级或评估台式机硬件，询问装机 DIY、配置单、整机推荐、配置补全、搭配检查、兼容性、预算分配或硬件选择原理时使用。覆盖游戏和直播、本地 AI 与内容生产、开发与建模、外观和紧凑主机等场景。单独询问软件、游戏、agent 或教程使用方法时不要触发。使用离线配件库和程序化兼容检查，不凭记忆编型号、价格或兼容结论。Use for English desktop PC build planning, upgrades, compatibility checks, and hardware selection. English answers use China-market CNY reference data and do not claim local price or availability outside China. Do not use for laptops, server procurement, ordering or payment, remote control, or security isolation.
 metadata:
-  display_name: DIY装机助手
-  tags: pc-build,hardware,chinese-market,compatibility
+  display_name: PC Build Assistant
+  tags: pc-build,hardware,chinese-market,compatibility,english
 license: MIT
 ---
 
-# DIY装机助手
+# PC Build Assistant
+
+## 语言与市场范围
+
+- English route: if the request is primarily in English or explicitly asks for an English answer, read `references/english-usage.md` first. English product or software names alone do not activate this route in a Chinese request; an explicit output language wins for mixed requests.
 
 ## 工作流
 
@@ -25,7 +29,7 @@ license: MIT
 ## 硬规则
 
 - 不编型号、价格、帧率或兼容性结果。
-- 只输出人民币价格，并标注价格参考日期；缺价条目不参与总价。
+- 默认只输出人民币价格，并标注价格参考日期；英语叶子仅在用户明确要求时可附加已核实汇率的外币估算，人民币原价仍须保留。缺价条目不参与总价。
 - 默认只推荐可核验的新品渠道报价；二手、翻新和不确定到手价不进入默认总价。
 - 公开输出使用中性候选池表达，不输出品牌贬损、商业背书或内部来源信息。
 - 白色配置必须使用白色/白色系配件；黑色配置使用黑色或中性色；无光/纯性能需求不要为灯效和外观溢价牺牲核心性能。

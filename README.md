@@ -1,9 +1,9 @@
-# DIY装机助手
+# PC Build Assistant
 
-`DIY装机助手` 是一个面向中文硬件市场的 Codex / OpenAI Skill，用于根据预算、用途、色系和机箱偏好生成台式机配置单，并通过本地脚本做兼容性检查。
+`DIY装机助手` 是一个以中文硬件市场为数据基线的 Codex / OpenAI Skill，用于根据预算、用途、色系和机箱偏好生成台式机配置单，并通过本地脚本做兼容性检查。它也支持英文硬件科普、配置选择、升级和兼容性检查；英文输出继续使用中国市场人民币参考数据，不代表用户所在国家的实际价格、库存或可购买型号。
 
 - Skill slug: `zhuangji-assistant-skill`
-- 展示名称: `DIY装机助手`
+- 展示名称: `PC Build Assistant`
 - 当前版本: `0.0.27`
 - 许可证: MIT
 - 价格参考日期: 以所选条目 `price_date` 为准；整包参考日期运行时读取数据文件 metadata
@@ -19,6 +19,8 @@
 ## 数据与价格说明
 
 Skill 默认使用离线库中的网络公开价格参考。硬件价格和库存变化很快，结果不构成购买承诺；下单前应核对实时价格、库存、保修、具体型号后缀、颜色版本、尺寸和供电接口。
+
+英文请求会按用户语言回答，默认仍列人民币。只有用户明确要求时才在线核对当日汇率并附加约合美元或其他货币，且必须保留人民币原价和汇率日期；换算值只是货币估算，不是当地报价。用户需要在中国大陆以外购买时，应按推荐规格核对当地等效 SKU、零售商库存、保修和实际价格。
 
 每次输出配置报告时，Agent 都应提醒：
 
@@ -70,6 +72,7 @@ python scripts/validate_library.py
 │   ├── workflows.md
 │   ├── scenarios.md
 │   ├── hardware-faq.md
+│   ├── english-usage.md
 │   ├── game-performance.md
 │   ├── pricing.md
 │   ├── compatibility.md
