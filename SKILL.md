@@ -1,5 +1,5 @@
 ---
-name: zhuangji-assistant-skill
+name: pc-build-assistant
 description: 中文市场台式机装机配置助手。用户要按预算和用途选购、升级或评估台式机硬件，询问装机 DIY、配置单、整机推荐、配置补全、搭配检查、兼容性、预算分配或硬件选择原理时使用。覆盖游戏和直播、本地 AI 与内容生产、开发与建模、外观和紧凑主机等场景。单独询问软件、游戏、agent 或教程使用方法时不要触发。使用离线配件库和程序化兼容检查，不凭记忆编型号、价格或兼容结论。Use for English desktop PC build planning, upgrades, compatibility checks, and hardware selection. English answers use China-market CNY reference data and do not claim local price or availability outside China. Do not use for laptops, server procurement, ordering or payment, remote control, or security isolation.
 metadata:
   display_name: PC Build Assistant

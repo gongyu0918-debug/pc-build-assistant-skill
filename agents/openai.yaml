@@ -1,7 +1,7 @@
 interface:
   display_name: "PC Build Assistant"
   short_description: "Plan, upgrade, complete, or check a desktop PC build"
-  default_prompt: "Use $zhuangji-assistant-skill to plan, upgrade, complete, or check a desktop PC build for my budget and workload, with itemized China-market CNY reference prices and compatibility reviewed."
+  default_prompt: "Use $pc-build-assistant to plan, upgrade, complete, or check a desktop PC build for my budget and workload, with itemized China-market CNY reference prices and compatibility reviewed."
 
 policy:
   allow_implicit_invocation: true

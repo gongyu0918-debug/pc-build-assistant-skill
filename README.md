@@ -2,7 +2,7 @@
 
 `DIY装机助手` 是一个以中文硬件市场为数据基线的 Codex / OpenAI Skill，用于根据预算、用途、色系和机箱偏好生成台式机配置单，并通过本地脚本做兼容性检查。它也支持英文硬件科普、配置选择、升级和兼容性检查；英文输出继续使用中国市场人民币参考数据，不代表用户所在国家的实际价格、库存或可购买型号。
 
-- Skill slug: `zhuangji-assistant-skill`
+- Skill slug: `pc-build-assistant`
 - 展示名称: `PC Build Assistant`
 - 当前版本: `0.0.28`
 - 许可证: MIT
