@@ -50,6 +50,8 @@ CATEGORIES = {
 CORE_CATEGORIES = ("cpu", "mb", "memory", "storage", "gpu", "cooler", "psu", "case")
 DISPLAY_CATEGORIES = {"display", "monitor"}
 FAN_CATEGORIES = {"fan"}
+DEFAULT_QUERY_LIMIT = 20
+PRICE_STALE_AFTER_DAYS = 14
 
 
 @dataclass(frozen=True)
@@ -59,7 +61,7 @@ class QuerySpec:
     platform: str | None = None
     color: str | None = None
     rgb: bool | None = None
-    limit: int = 20
+    limit: int = DEFAULT_QUERY_LIMIT
     has_price_only: bool = True
     showcase: bool | None = None
     include_legacy: bool = False
@@ -1076,7 +1078,10 @@ def _price_freshness(item, as_of=None):
         return {}
     reference = as_of or date.today()
     age_days = max(0, (reference - quoted_on).days)
-    return {"price_age_days": age_days, "price_stale": age_days > 14}
+    return {
+        "price_age_days": age_days,
+        "price_stale": age_days > PRICE_STALE_AFTER_DAYS,
+    }
 
 
 def _matches_common_candidate(item, spec):
@@ -1225,7 +1230,7 @@ def _query_core_components(spec):
 
 
 def query(category=None, budget=None, platform=None, color=None,
-          rgb=None, limit=20, has_price_only=True, showcase=None,
+          rgb=None, limit=DEFAULT_QUERY_LIMIT, has_price_only=True, showcase=None,
           include_legacy=False, sort="asc", socket=None, chipset=None,
           memory_gen=None, form_factor=None, max_length=None, gpu_cooling="air",
           gpu_chip=None, min_vram=None, min_capacity=None, include_workstation_gpu=False,
@@ -1748,7 +1753,7 @@ def _build_parser():
     parser.add_argument("--min-refresh", type=int, help="显示器最低刷新率 (Hz)")
     parser.add_argument("--sort", choices=["asc", "desc", "tier"], default="asc",
                         help="排序: asc=价格升序(默认), desc=价格降序, tier=按品类性能/采用率/规格完整度优先")
-    parser.add_argument("--limit", type=int, default=20, help="最大返回数")
+    parser.add_argument("--limit", type=int, default=DEFAULT_QUERY_LIMIT, help="最大返回数")
     parser.add_argument("--detail", action="store_true", help="返回完整属性 (默认只返回摘要)")
     parser.add_argument("--json", action="store_true", help="输出 JSON 格式")
     parser.add_argument("--include-legacy", action="store_true", help="包含旧平台/非当前推荐范围条目")

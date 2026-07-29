@@ -19,6 +19,12 @@ from pathlib import Path
 import yaml
 
 from component_inference import enrich_item, infer_native_16pin_psu, infer_requires_16pin_gpu
+from power_budget import (
+    DEFAULT_NON_CORE_POWER_W,
+    PSU_HEADROOM_FACTOR,
+    PSU_TIGHT_MARGIN_W,
+    recommended_psu_w,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -28,6 +34,8 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
+PSU_CASE_CLEARANCE_WARNING_MM = 20
+CPU_COOLER_CLEARANCE_WARNING_MM = 5
 
 
 class CompatibilityChecker:
@@ -328,7 +336,7 @@ class CompatibilityChecker:
                 "msg": f"SATA设备【{sata_count}个】超过主板SATA口【{sata_ports}个】"}
         return {"type": "success", "msg": "SATA接口数量充足"}
 
-    def check_psu_power(self, psu, cpu, gpu_list, extra_w=50):
+    def check_psu_power(self, psu, cpu, gpu_list, extra_w=DEFAULT_NON_CORE_POWER_W):
         """检查电源功率是否满足整机功耗。
 
         余量公式: recommended = ceil((cpu_w + gpu_w + extra) * 1.35)
@@ -347,14 +355,14 @@ class CompatibilityChecker:
         if gpu_list and any(not value for value in gpu_powers):
             missing = [str(index + 1) for index, value in enumerate(gpu_powers) if not value]
             return {"type": "msg", "msg": f"第{'、'.join(missing)}张显卡缺少功耗信息，电源功率需人工复核"}
-        recommended = math.ceil((cpu_w + gpu_w + extra_w) * 1.35)
+        recommended = recommended_psu_w(cpu_w, gpu_w, extra_w)
         if psu_w < recommended:
             return {"type": "error",
-                "msg": f"电源功率【{psu_w}W】不足，建议≥{recommended}W (CPU {cpu_w}W + GPU {gpu_w}W + 其他 {extra_w}W ×1.35)"}
+                "msg": f"电源功率【{psu_w}W】不足，建议≥{recommended}W (CPU {cpu_w}W + GPU {gpu_w}W + 其他 {extra_w}W ×{PSU_HEADROOM_FACTOR})"}
         margin = psu_w - recommended
-        if margin < 50:
+        if margin < PSU_TIGHT_MARGIN_W:
             return {"type": "warn",
-                "msg": f"电源功率【{psu_w}W】刚好够用，建议功率≥{recommended + 50}W留更多余量"}
+                "msg": f"电源功率【{psu_w}W】达到最低建议【{recommended}W】，但余量较小；建议≥{recommended + PSU_TIGHT_MARGIN_W}W留更多余量"}
         return {"type": "success",
             "msg": f"电源功率【{psu_w}W】充足，推荐功率{recommended}W，余量{margin}W"}
 
@@ -392,6 +400,9 @@ class CompatibilityChecker:
                 if cooler_height > case_limit:
                     return {"type": "error",
                         "msg": f"风冷高度【{cooler_height}mm】超过机箱限制【{case_limit}mm】"}
+                if case_limit - cooler_height < CPU_COOLER_CLEARANCE_WARNING_MM:
+                    return {"type": "warn",
+                        "msg": f"风冷高度【{cooler_height}mm】接近机箱限制【{case_limit}mm】，未留足{CPU_COOLER_CLEARANCE_WARNING_MM}mm安装余量"}
                 return {"type": "success", "msg": "风冷高度在机箱限制内"}
         elif cooler_type in ("liquid", "water", "水冷"):
             radiator = cooler.get("radiator_mm", "")
@@ -494,7 +505,11 @@ class CompatibilityChecker:
             if length_condition and case_limit and psu_len and not recommended_limit:
                 return {"type": "warn",
                     "msg": f"电源长度【{psu_len}mm】未超过物理上限【{case_limit}mm】，但该上限存在布局条件；{length_condition}，需复核实际安装组合"}
-            if case_limit and psu_len and case_limit - psu_len < 20:
+            if (
+                case_limit
+                and psu_len
+                and case_limit - psu_len < PSU_CASE_CLEARANCE_WARNING_MM
+            ):
                 return {"type": "warn",
                     "msg": f"电源长度【{psu_len}mm】接近机箱电源位限制【{case_limit}mm】，需复核线材弯折、限高和硬盘笼空间"}
             if case_limit and not psu_len and special_case:
@@ -512,26 +527,9 @@ class CompatibilityChecker:
     def _add_check(self, checks, name, result, skipped_msg="无可检查项", skipped_review_required=True):
         checks.append((name, result or self._skipped(skipped_msg, skipped_review_required)))
 
-    def check_all(self, build, strict=False, missing_ids=None):
-        """检查完整配置的兼容性。
-
-        Args:
-            build: dict with keys: cpu, motherboard, memory (list),
-                   storage (list), gpu (list), psu, cooler, case
-            strict: final-build mode. Missing core parts become errors.
-            missing_ids: IDs passed by the caller but not found in the library.
-        Returns:
-            Compatibility and evidence completeness are reported separately.
-            ``overall`` keeps the legacy pass/warn/fail contract.
-        """
-        cpu = build.get("cpu")
-        mb = build.get("motherboard")
-        mem = build.get("memory", [])
-        storage = build.get("storage", [])
-        gpus = build.get("gpu", [])
-        psu = build.get("psu")
-        cooler = build.get("cooler")
-        case = build.get("case")
+    def _strict_completeness_checks(
+        self, cpu, mb, mem, storage, gpus, psu, cooler, case, strict, missing_ids
+    ):
         checks = []
         for missing_id in (missing_ids or []):
             checks.append(("ID校验", {"type": "error", "msg": f"未找到配件ID: {missing_id}"}))
@@ -550,6 +548,10 @@ class CompatibilityChecker:
                     checks.append(("完整性", {"type": "error", "msg": f"严格模式缺少{label}"}))
             if not gpus and not self._cpu_has_integrated_graphics(cpu):
                 checks.append(("完整性", {"type": "error", "msg": "严格模式缺少独显，且CPU未确认带核显"}))
+        return checks
+
+    def _compatibility_checks(self, cpu, mb, mem, storage, gpus, psu, cooler, case):
+        checks = []
         self._add_check(checks, "CPU↔主板", self.check_cpu_motherboard(cpu, mb))
         if not gpus and self._cpu_has_integrated_graphics(cpu):
             self._add_check(checks, "显示输出", {"type": "success", "msg": "未选择独显，CPU可提供核显显示输出"})
@@ -585,6 +587,10 @@ class CompatibilityChecker:
         self._add_check(checks, "散热↔机箱", self.check_cooler_case(cooler, case))
         self._add_check(checks, "机箱↔主板", self.check_case_motherboard(case, mb))
         self._add_check(checks, "机箱↔电源", self.check_case_psu(case, psu), "未检查机箱电源尺寸")
+        return checks
+
+    def _summarize_checks(self, checks):
+        checks = [(name, dict(result)) for name, result in checks]
         severity = {"error": 0, "warn": 0, "success": 0, "msg": 0, "skipped": 0}
         for _, r in checks:
             t = r.get("type", "")
@@ -615,6 +621,34 @@ class CompatibilityChecker:
             "checks": checks,
             "severity": severity,
         }
+
+    def check_all(self, build, strict=False, missing_ids=None):
+        """检查完整配置的兼容性。
+
+        Args:
+            build: dict with keys: cpu, motherboard, memory (list),
+                   storage (list), gpu (list), psu, cooler, case
+            strict: final-build mode. Missing core parts become errors.
+            missing_ids: IDs passed by the caller but not found in the library.
+        Returns:
+            Compatibility and evidence completeness are reported separately.
+            ``overall`` keeps the legacy pass/warn/fail contract.
+        """
+        cpu = build.get("cpu")
+        mb = build.get("motherboard")
+        mem = build.get("memory", [])
+        storage = build.get("storage", [])
+        gpus = build.get("gpu", [])
+        psu = build.get("psu")
+        cooler = build.get("cooler")
+        case = build.get("case")
+        completeness = self._strict_completeness_checks(
+            cpu, mb, mem, storage, gpus, psu, cooler, case, strict, missing_ids
+        )
+        compatibility = self._compatibility_checks(
+            cpu, mb, mem, storage, gpus, psu, cooler, case
+        )
+        return self._summarize_checks(completeness + compatibility)
 
 
 def load_components():
