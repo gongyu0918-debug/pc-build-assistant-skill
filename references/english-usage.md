@@ -19,7 +19,7 @@ Read this file when the user's request is primarily in English or explicitly ask
 
 ## Reference routing
 
-- For a complete build, read `routing.md`, `selection-policy.md`, the relevant part of `scenarios.md`, `pricing.md`, and `compatibility.md` after this file. After drafting the first parts list, apply the budget-closure, default-capacity, component-quality, and balance rules from those references before writing the final answer.
+- For a complete build, read `routing.md`, `selection-policy.md`, the relevant part of `scenarios.md`, `hardware-scope.md`, `pricing.md`, and `compatibility.md` after this file. After drafting the first parts list, apply the budget-closure, default-capacity, component-quality, and balance rules from those references before writing the final answer.
 - In a complete build, turn every scenario-required item with an available catalog candidate into a priced row. Do not leave a queryable required item as an unpriced budget reserve.
 - For an upgrade, configuration completion, or compatibility review, read `workflows.md` plus only the scenario, pricing, selection, and compatibility references needed for that request.
 - For a hardware-selection question, read the relevant section of `hardware-faq.md`. Query exact products only when the question requires models or prices.

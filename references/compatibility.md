@@ -14,7 +14,7 @@
 
 SSD 的 `dram_cache=true` 只在官方资料明确板载 DRAM 时写入；`dram_cache=false` 可表示官方明确 DRAM-less/HMB。SLC Cache、nCache 或仅有高顺序读写参数不能当作独立 DRAM 证据。剪辑、直播录制、AE 缓存、摄影和频繁读写场景若字段缺失，必须在线核对具体容量和版本，不能凭系列印象承诺带缓存。
 
-电源功率检查只覆盖硬下限；选型余量按 `selection-policy.md` 和最终用途说明取舍。
+电源功率检查只覆盖硬下限；选型余量按已加载的通用选件策略和最终用途说明取舍，不回读其他 reference。
 
 普通 ATX/MATX 机箱默认选择 ATX 电源。SFX/SFX-L/FLEX/TFX 小电源用于 ITX、小型、NAS、卧式或用户明确复用小电源的场景；装入普通 ATX 机箱即使可用转接支架，也默认按不通过处理，不写成推荐配置。
 

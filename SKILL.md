@@ -16,11 +16,11 @@ license: MIT
 ## 工作流
 
 1. 所有需求先读 `references/routing.md`。需要具体型号、完整配置、升级、补全或搭配检查时，再读 `references/selection-policy.md`。
-2. 按需读取场景与模式：具体用途、外观或形态读 `references/scenarios.md`；升级、补全、检查和精确替换读 `references/workflows.md`；硬件问答读 `references/hardware-faq.md`；游戏帧率读 `references/game-performance.md`。
+2. 按需读取场景与模式：具体用途、外观或形态读 `references/scenarios.md`；升级、补全、检查和精确替换读 `references/workflows.md`；硬件问答读 `references/hardware-faq.md`；游戏帧率读 `references/game-performance.md`；给出具体型号、报价或兼容结论时还要读 `references/pricing.md` 和 `references/compatibility.md`。
 3. 查候选时运行 `scripts/query_components.py`，不要直接打开 `data/*.yaml`。完整配置分别查询 CPU、主板、内存、硬盘、显卡、散热、电源、机箱；中高端显卡、主板、SSD 和内存使用 `--sort tier`。`--budget` 是单品价格上限，不是整机预算。
 4. 最终推荐必须运行 `scripts/check_compatibility.py --strict --require-complete` 并传入全部核心配件。存在硬不兼容时更换配件；有待复核字段时优先换字段完整候选，否则列明具体复核项，不得写成完整通过。
 5. 处理价格。离线库优先；离线库不足、价格日期超过 14 天或用户要求实时价格时，再搜索当前市场价。
-6. 输出配置。只回答方向或原理且未给具体采购型号时，不强制套整机报价表。给出具体型号或清单时，分行列出八类配件及参考单价，并写总价、预算差额、兼容结论、取舍理由、下单前复核点和价格参考日期。游戏帧率只引用 `scripts/query_game_fps.py` 已收录样本，未收录时不自行推算。
+6. 输出配置。只回答方向或原理且未给具体采购型号时，不强制套整机报价表。给出具体型号或清单时，分行列出八类配件及参考单价，并写总价、预算差额、兼容结论、取舍理由、下单前复核点、价格参考日期和仅供参考说明。游戏帧率只引用 `scripts/query_game_fps.py` 已收录样本，未收录时不自行推算。
 
 ## 收录边界
 

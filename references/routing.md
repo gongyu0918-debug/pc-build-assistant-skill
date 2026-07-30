@@ -15,7 +15,8 @@
 | 无光 / 不要灯 | 不花预算在RGB/灯效上 | rgb=false |
 | 纯性能不要颜值 | 性能优先，压外观预算 | aesthetics=false |
 | 水冷 / 360水冷 | 用水冷散热 | cooler_type=liquid, radiator=360 |
-| 小机箱 / ITX | 紧凑型，MATX/ITX | form_factor=MATX/ITX |
+| 小机箱 / 紧凑机箱 | 默认优先紧凑 M-ATX；只有用户明确说 ITX、Mini-ITX、SFF 或给出严格体积/尺寸时才进入 ITX 全链路 | form_factor=MATX_compact |
+| ITX / Mini-ITX / SFF | 主板、机箱、电源、显卡和散热全部按 ITX 空间约束收窄 | form_factor=ITX, require_full_itx_chain=true |
 | 低U高显 | CPU够用，显卡拉满 | routing=low_cpu_high_gpu |
 | 2K / 4K | 分辨率目标，影响显卡档位 | resolution=2K/4K |
 | 能跑多少帧 / 跑满 240Hz、360Hz、500Hz / 1K 500帧 | 游戏帧率参考需求 | read=game-performance.md, run=query_game_fps.py |
