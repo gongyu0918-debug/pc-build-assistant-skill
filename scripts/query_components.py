@@ -566,6 +566,52 @@ def _same_capacity(value, target):
     return _parse_int(value) == _parse_int(target)
 
 
+def _storage_trusted_price_floor(rows, item):
+    """Return a storage floor without letting unknown M.2 generations bypass it."""
+    generation = _parse_int(item.get("pcie_generation"))
+    capacity = _parse_int(item.get("capacity_gb"))
+    if not capacity and item.get("capacity_tb"):
+        capacity = int(_parse_num(item.get("capacity_tb")) * 1000)
+    same_capacity_rows = [
+        row for row in rows
+        if _near_capacity(capacity, row.get("capacity_gb"))
+    ]
+    if not same_capacity_rows:
+        return None
+    if generation:
+        for row in same_capacity_rows:
+            if generation == _parse_int(row.get("pcie_generation")):
+                return _parse_int(row.get("floor_cny")) or None
+        lower_generation_rows = [
+            row for row in same_capacity_rows
+            if (row_generation := _parse_int(row.get("pcie_generation"))) and row_generation <= generation
+        ]
+        if lower_generation_rows:
+            best_floor = max(
+                lower_generation_rows,
+                key=lambda row: _parse_int(row.get("pcie_generation")),
+            )
+            return _parse_int(best_floor.get("floor_cny")) or None
+        return None
+
+    # M.2 rows with an unknown PCIe generation still need the lowest known
+    # same-capacity PCIe floor; SATA rows have a different market baseline.
+    interface = compact_text(item.get("interface") or item.get("form_factor"))
+    if "M2" not in interface:
+        return None
+    known_generation_rows = [
+        row for row in same_capacity_rows
+        if _parse_int(row.get("pcie_generation"))
+    ]
+    if not known_generation_rows:
+        return None
+    conservative_floor = min(
+        known_generation_rows,
+        key=lambda row: _parse_int(row.get("pcie_generation")),
+    )
+    return _parse_int(conservative_floor.get("floor_cny")) or None
+
+
 def _trusted_price_floor(category, item):
     """Return a trusted lower price bound for categories with market floor data."""
     floors = load_price_floors()
@@ -605,22 +651,7 @@ def _trusted_price_floor(category, item):
                 continue
             return _parse_int(row.get("floor_cny")) or None
     if category == "storage":
-        gen = _parse_int(item.get("pcie_generation"))
-        capacity = _parse_int(item.get("capacity_gb"))
-        if not capacity and item.get("capacity_tb"):
-            capacity = int(_parse_num(item.get("capacity_tb")) * 1000)
-        same_capacity_rows = []
-        for row in floors.get("storage", []):
-            if not _near_capacity(capacity, row.get("capacity_gb")):
-                continue
-            row_gen = _parse_int(row.get("pcie_generation"))
-            if gen == row_gen:
-                return _parse_int(row.get("floor_cny")) or None
-            if gen and row_gen and row_gen <= gen:
-                same_capacity_rows.append(row)
-        if same_capacity_rows:
-            best_floor = max(same_capacity_rows, key=lambda row: _parse_int(row.get("pcie_generation")))
-            return _parse_int(best_floor.get("floor_cny")) or None
+        return _storage_trusted_price_floor(floors.get("storage", []), item)
     return None
 
 

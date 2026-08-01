@@ -39,6 +39,7 @@ Read this file when the user's request is primarily in English or explicitly ask
 - Do not present a currency conversion as a local retail quote. Do not claim that a listed model, suffix, color, warranty, stock level, or price is available in the user's country.
 - If the user asks what to buy locally, provide hardware criteria and a China-market reference build, then ask them to verify equivalent local SKUs, retailers, warranty terms, stock, and prices.
 - Do not convert currencies by default. A budget stated in USD or another non-CNY currency counts as a request for conversion: verify a current exchange rate before querying, translate the budget into a CNY target, retain the CNY total, and show an approximate total in the user's currency. State the exchange-rate date and make clear that the conversion is not a local retail quote.
+- For every non-CNY budget, the final market note must name the checked exchange-rate date; a conversion statement without that date is incomplete.
 - Keep the CNY component total separate from local tax, shipping, rebates, and checkout-only discounts. Show those separately only when the user asks.
 - Exclude RTX 5090D and RTX 5090D V2 from default English recommendations. Compare them only when the user explicitly asks about China-region GPU variants.
 - Cases, CPU coolers, case fans, and power supplies vary strongly by region. Give each selected row a short, concrete local buying note such as `Check for a local 650W ATX 3.1 equivalent`.

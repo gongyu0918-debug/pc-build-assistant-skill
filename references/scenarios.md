@@ -80,7 +80,7 @@
 - 优先级为内存、SSD、CPU，其次才是显卡；但只要用户场景和 AI 辅助、embedding、向量库、本地小模型、ComfyUI 或视频生成有关，预算允许时默认保留一张 NVIDIA 显卡作为 CUDA/本地模型弹性，不把 Intel Arc 作为 AI 相关默认显卡。用户明确纯云端、纯编译或极限省钱时，才降低显卡权重。
 - 官方最低运行门槛不等于装机推荐。Claude Code 官方最低可到 4GB+ RAM；OpenCode/Codex 这类终端 agent 主要依赖网络模型和本地项目工具链。实际装机按“IDE + 浏览器 + 终端 agent + 索引/缓存 + Docker/测试”的并发负载估算。
 - 默认 32GB 起步；多项目、多容器、浏览器和 IDE 常驻建议 64GB。多 agent 并发、本地向量库/知识库、多个沙箱或后台服务常驻，可建议 96GB/128GB；明确容量时用 `--min-capacity N --max-capacity N --sort tier`（N 为 64、96 或 128）收窄，再看频率、时序、套条数量和候选池权重。不要为纯 agent 盲目牺牲 SSD 和 CPU。
-- SSD 优先 2TB 主流 TLC NVMe；大量索引、缓存、日志、向量库、模型或多仓库时建议第二块 SSD 或 4TB。明确容量时同时用 `--min-capacity` 和 `--max-capacity`，再用 `--sort tier` 比较同容量候选；优先看 TLC、耐久和持续写入，不要用 QLC 系统盘。
+- SSD 优先 2TB 主流 TLC NVMe；大量索引、缓存、日志、向量库、模型或多仓库时建议第二块 SSD 或 4TB。明确容量时同时用 `--min-capacity` 和 `--max-capacity`，再用 `--sort tier` 比较同容量候选；优先看 TLC、耐久和持续写入，不要用 QLC 系统盘。预算不足时，先保留 32GB 内存和可用的 NVIDIA 显卡，再把默认 2TB 收窄为 1TB TLC，并说明后续扩容方向；不要只为保住默认容量而把整机显著推离用户预算。
 - CPU 优先高单核和足够核心数，Intel 带核显对排障/编码有价值；AMD 也可用，按预算和平台扩展性取舍。
 - 如果用户实际想跑本地 LLM、embedding 或重排序模型，再单独进入本地模型路线，显存/内存需求会明显上升。
 
