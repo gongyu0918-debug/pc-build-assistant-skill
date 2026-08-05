@@ -1,28 +1,28 @@
 metadata:
-  price_date: 2026-08-03
-  cpu_price_date: 2026-08-03
-  gpu_price_date: 2026-08-03
-  memory_price_date: 2026-08-03
-  storage_price_date: 2026-08-03
+  price_date: 2026-08-05
+  cpu_price_date: 2026-08-05
+  gpu_price_date: 2026-08-05
+  memory_price_date: 2026-08-05
+  storage_price_date: 2026-08-05
   source_type: network_public_price_observation
   scope: default_lower_bound_only
   notes:
     - CPU uses explicit daily low price floors only; it does not use same-model outlier grouping.
     - Floors are lower-bound trust references for default recommendations, not upper price caps.
-    - User-provided daily floor images cover current CPUs, GPUs, memory kits and SSDs on 2026-08-03.
+    - User-provided daily floor images cover current CPUs, GPUs, memory kits and SSDs on 2026-08-05.
     - GPU floors use the daily-low column, not the historical-low column or trend chart endpoint.
-    - Legacy GPU rows not present in the 2026-08-03 daily-low table retain their last explicit lower-bound evidence; average transaction prices and trend charts are not transcribed as daily floors.
+    - Legacy GPU rows not present in the 2026-08-05 daily-low table retain their last explicit lower-bound evidence; average transaction prices and trend charts are not transcribed as daily floors.
 cpus:
   - model: U7-270KPLUS
-    floor_cny: 1999
+    floor_cny: 1990
   - model: U7-265K
     floor_cny: 1583
   - model: U7-265KF
     floor_cny: 1583
   - model: U5-250K
-    floor_cny: 1379
+    floor_cny: 1309
   - model: U5-250KF
-    floor_cny: 1379
+    floor_cny: 1309
   - model: U5-245K
     floor_cny: 929
   - model: U5-245KF
@@ -36,25 +36,25 @@ cpus:
   - model: I7-14700KF
     floor_cny: 2250
   - model: I5-14600K
-    floor_cny: 1720
+    floor_cny: 1610
   - model: I5-14600KF
-    floor_cny: 1720
+    floor_cny: 1610
   - model: R9-9950X
-    floor_cny: 2826
+    floor_cny: 2819
   - model: R9-9900X
     floor_cny: 2199
   - model: R7-9700X
     floor_cny: 1379
   - model: R5-9600X
-    floor_cny: 1049
+    floor_cny: 1030
   - model: R5-9500F
-    floor_cny: 839
+    floor_cny: 838
   - model: R9-9950X3D
     floor_cny: 3899
   - model: R7-9850X3D
-    floor_cny: 2699
+    floor_cny: 2689
   - model: R7-9800X3D
-    floor_cny: 2429
+    floor_cny: 2529
   - model: R7-7800X3D
     floor_cny: 1758
   - model: R5-7500F
@@ -62,34 +62,34 @@ cpus:
 gpus:
   - chip: RTX5090
     min_vram_gb: 32
-    floor_cny: 31964
+    floor_cny: 32464
   - chip: RTX5090D
     min_vram_gb: 32
-    floor_cny: 31964
+    floor_cny: 32464
   - chip: RTX5090DV2
     min_vram_gb: 24
-    floor_cny: 21494
+    floor_cny: 21479
   - chip: RTX5080
     min_vram_gb: 16
-    floor_cny: 10188
+    floor_cny: 9900
   - chip: RTX5070TI
     min_vram_gb: 16
-    floor_cny: 8199
+    floor_cny: 8080
   - chip: RTX5070
     min_vram_gb: 12
-    floor_cny: 5764
+    floor_cny: 5799
   - chip: RTX5060TI
     min_vram_gb: 16
-    floor_cny: 4699
+    floor_cny: 4799
   - chip: RTX5060TI
     max_vram_gb: 8
-    floor_cny: 3249
+    floor_cny: 3267
   - chip: RTX5060
     min_vram_gb: 8
-    floor_cny: 2689
+    floor_cny: 2789
   - chip: RTX5050
     min_vram_gb: 8
-    floor_cny: 2190
+    floor_cny: 2259
   - chip: RTX4070SUPER
     min_vram_gb: 12
     floor_cny: 3415
@@ -101,16 +101,16 @@ gpus:
     floor_cny: 5199
   - chip: RX9070GRE
     min_vram_gb: 12
-    floor_cny: 3599
+    floor_cny: 3629
   - chip: RX9070
     min_vram_gb: 16
-    floor_cny: 4609
+    floor_cny: 4699
   - chip: RX9060XT
     min_vram_gb: 16
-    floor_cny: 2899
+    floor_cny: 3095
   - chip: RX9060XT
     max_vram_gb: 8
-    floor_cny: 2399
+    floor_cny: 2449
   - chip: RX7900XT
     min_vram_gb: 20
     floor_cny: 3184
@@ -124,11 +124,11 @@ memory:
   - generation: DDR4
     capacity_gb: 16
     module_count: 2
-    floor_cny: 393
+    floor_cny: 354
   - generation: DDR4
     capacity_gb: 32
     module_count: 2
-    floor_cny: 798
+    floor_cny: 793
   - generation: DDR5
     capacity_gb: 32
     module_count: 2
@@ -144,17 +144,17 @@ memory:
   - generation: DDR5
     capacity_gb: 96
     module_count: 2
-    floor_cny: 7194
+    floor_cny: 7195
 storage:
   - pcie_generation: 3
     capacity_gb: 1000
     floor_cny: 804
   - pcie_generation: 3
     capacity_gb: 2000
-    floor_cny: 1520
+    floor_cny: 1499
   - pcie_generation: 4
     capacity_gb: 1000
-    floor_cny: 879
+    floor_cny: 878
   - pcie_generation: 4
     capacity_gb: 2000
-    floor_cny: 1489
+    floor_cny: 1488
