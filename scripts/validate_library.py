@@ -20,6 +20,7 @@ from component_inference import (
     infer_gpu_vram,
     infer_memory_capacity_gb,
     infer_memory_module_count,
+    normalize_display_outputs,
 )
 
 try:
@@ -76,7 +77,7 @@ OBVIOUS_MODEL_TYPO_RE = re.compile(
 
 COVERAGE_FIELDS = {
     "gpus": ["length_mm", "requires_16pin_psu"],
-    "motherboards": ["m2_slots", "sata_ports", "memory_freq_max"],
+    "motherboards": ["m2_slots", "sata_ports", "memory_freq_max", "display_outputs"],
     "memory": ["timing"],
     "storage": ["pcie_generation", "dram_cache", "dram_cache_mb"],
     "coolers": ["type", "radiator_mm", "rgb"],
@@ -96,6 +97,12 @@ CPU_AIR_COOLER_RE = re.compile(
     r"(热管|单塔|双塔|下压|CPU\s*散热|CPU风冷|内存散热器|阿萨辛|大霜塔|冰立方|玄冰)",
     re.IGNORECASE,
 )
+AIO_FRAME_FORBIDDEN_RE = re.compile(
+    r"(热管|单塔|双塔|下压|CPU风冷|内存散热器|阿萨辛|大霜塔|冰立方|玄冰)",
+    re.IGNORECASE,
+)
+AIO_FRAME_FANLESS_RE = re.compile(r"无风扇|不含风扇|不带风扇|WITHOUT\s+FANS?", re.IGNORECASE)
+AIO_FRAME_POSITIVE_RE = re.compile(r"水冷|冷排|AIO|一体式", re.IGNORECASE)
 VALID_FAN_TYPES = {"case_fan", "radiator_fan_pack", "aio_frame", "accessory"}
 VALID_BLADE_DIRECTIONS = {"normal", "reverse"}
 VALID_GPU_MEMORY_TYPES = {
@@ -340,6 +347,10 @@ def _validate_component_item(section, item, required):
         raw_type = str(item.get("type") or "").lower()
         if inferred_type == "liquid" and raw_type not in {"liquid", "water", "水冷"}:
             state.errors.append(f"{section}.{item_id}: type={item.get('type')} conflicts with model-inferred liquid cooler")
+    if section == "motherboards" and item.get("display_outputs") is not None:
+        outputs = item.get("display_outputs")
+        if not normalize_display_outputs(outputs):
+            state.errors.append(f"{section}.{item_id}: invalid display_outputs={outputs}")
     if section == "psus" and item.get("length_mm") not in (None, ""):
         length_mm = item.get("length_mm")
         if isinstance(length_mm, bool) or not isinstance(length_mm, int) or not 80 <= length_mm <= 300:
@@ -348,7 +359,19 @@ def _validate_component_item(section, item, required):
         if item.get("form_factor") not in {"ATX", "SFX", "SFX-L", "FLEX", "TFX"}:
             state.errors.append(f"{section}.{item_id}: invalid form_factor={item.get('form_factor')}")
     if section == "fans":
-        if CPU_AIR_COOLER_RE.search(str(item.get("model", ""))):
+        model = str(item.get("model", ""))
+        if item.get("fan_type") == "aio_frame":
+            radiator_mm = item.get("radiator_fan_bundle_mm")
+            positive_aio_evidence = bool(AIO_FRAME_POSITIVE_RE.search(model)) or radiator_mm in {240, 280, 360, 420}
+            if (
+                not AIO_FRAME_FANLESS_RE.search(model)
+                or AIO_FRAME_FORBIDDEN_RE.search(model)
+                or not positive_aio_evidence
+            ):
+                state.errors.append(
+                    f"{section}.{item_id}: aio_frame must describe a fanless AIO frame, not an air/memory cooler"
+                )
+        elif CPU_AIR_COOLER_RE.search(model):
             state.errors.append(f"{section}.{item_id}: CPU/memory cooler classified as fan")
         if item.get("fan_type") not in VALID_FAN_TYPES:
             state.errors.append(f"{section}.{item_id}: invalid fan_type={item.get('fan_type')}")

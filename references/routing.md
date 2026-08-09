@@ -18,6 +18,7 @@
 | 小机箱 / 紧凑机箱 | 默认优先紧凑 M-ATX；只有用户明确说 ITX、Mini-ITX、SFF 或给出严格体积/尺寸时才进入 ITX 全链路 | form_factor=MATX_compact |
 | ITX / Mini-ITX / SFF | 主板、机箱、电源、显卡和散热全部按 ITX 空间约束收窄 | form_factor=ITX, require_full_itx_chain=true |
 | 低U高显 | CPU够用，显卡拉满 | routing=low_cpu_high_gpu |
+| 无独显 / 不配显卡 / 核显装机 / APU / 先用核显以后加卡 | 不采购独显，CPU 必须确认带核显，主板必须有已核实视频输出 | gpu=none, require_cpu_igpu=true, query_cpu=--integrated-graphics yes, query_mb=--display-output any |
 | 2K / 4K | 分辨率目标，影响显卡档位 | resolution=2K/4K |
 | 能跑多少帧 / 跑满 240Hz、360Hz、500Hz / 1K 500帧 | 游戏帧率参考需求 | read=game-performance.md, run=query_game_fps.py |
 | 多开 / 挂机 | CPU核心+内存容量优先 | routing=multitask |
@@ -54,6 +55,16 @@
 | CAD / 建模绘图 | cad | 先区分 2D、3D、装配和认证需求 |
 
 用户问具体帧率或跑满刷新率时，读取 `game-performance.md` 并运行 `query_game_fps.py`；未收录游戏或硬件组合不要编 FPS。
+
+## 核显/无独显直达路由
+
+用户明确要求无独显、不配显卡、核显装机、APU、办公机或先用核显以后加卡时，直接进入核显整机，不先尝试独显方案，也不要求用户再次确认。
+
+1. CPU 查询必须加 `--integrated-graphics yes`；Intel F/KF、AMD F 和核显状态未知型号不得进入方案。显卡不查询、不计价，报价表显卡行写“无独显，使用 CPU 核显，¥0”。
+2. 核显路线默认面向办公、网页、视频、轻修图、轻剪辑、家庭影音和过渡使用。用户同时要求 3A、CUDA、本地 AI、重度 3D 或高画质高帧时，先说明核显不能满足该目标，再给独显预算方向。
+3. 主板查询加 `--display-output any`，优先选择已有 `display_outputs` 证据的候选；用户明确显示器接口时可改用 `--display-output HDMI/DisplayPort/VGA`。字段缺失会被完整度门禁拦住，不能只凭 CPU 有核显就承诺显示链路已确认。
+4. 用户给出未来目标显卡或性能档位时，按目标卡的功耗、供电接口和长度预留电源与机箱；目标未定时只说明可后续加卡，不承诺任意显卡均可兼容。
+5. 最终兼容检查仍用 `--strict --require-complete`，传 CPU、主板、内存、硬盘、散热、电源和机箱，不传 `--gpu`。
 
 ## 预算阶梯 (2026 中文市场)
 

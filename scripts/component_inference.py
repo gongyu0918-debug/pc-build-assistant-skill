@@ -34,6 +34,74 @@ def _upper(item):
     return _text(item).upper().replace("－", "-")
 
 
+_DISPLAY_OUTPUT_PATTERNS = (
+    ("HDMI", re.compile(r"^(?:\d+\s*[X×]\s*)?HDMI(?:\s*(?:PORT)?\s*\d+(?:\.\d+)?)?$", re.IGNORECASE)),
+    ("DisplayPort", re.compile(r"^(?:\d+\s*[X×]\s*)?(?:DISPLAYPORT|DP)(?:\s*\d+(?:\.\d+)?)?$", re.IGNORECASE)),
+    ("VGA", re.compile(r"^(?:\d+\s*[X×]\s*)?(?:VGA|D[- ]?SUB)$", re.IGNORECASE)),
+    ("DVI", re.compile(r"^(?:\d+\s*[X×]\s*)?DVI(?:-[DIA])?$", re.IGNORECASE)),
+    ("USB-C", re.compile(r"^(?:\d+\s*[X×]\s*)?USB(?:\s*TYPE)?[- ]?C(?:\s*(?:DISPLAYPORT|DP)\s*ALT\s*MODE)?$", re.IGNORECASE)),
+    ("Thunderbolt", re.compile(r"^(?:\d+\s*[X×]\s*)?THUNDERBOLT(?:\s*[1-5])?$", re.IGNORECASE)),
+)
+
+
+def normalize_display_output(value):
+    """Return a canonical motherboard display connector or None."""
+    text = str(value or "").strip()
+    for canonical, pattern in _DISPLAY_OUTPUT_PATTERNS:
+        if pattern.fullmatch(text):
+            return canonical
+    return None
+
+
+def normalize_display_outputs(values):
+    """Normalize a display-output list, rejecting the whole field if any value is invalid."""
+    if not isinstance(values, list) or not values:
+        return []
+    normalized = [normalize_display_output(value) for value in values]
+    if any(value is None for value in normalized):
+        return []
+    return normalized
+
+
+def infer_cpu_integrated_graphics(item):
+    """Return True/False when a desktop CPU's integrated graphics are known.
+
+    Explicit data wins. Model inference is deliberately conservative so an
+    unknown SKU cannot satisfy a no-discrete-GPU build by accident.
+    """
+    for field in ("integrated_graphics", "has_integrated_graphics", "igpu"):
+        if field not in item or item.get(field) is None:
+            continue
+        value = item.get(field)
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().lower()
+        if text in ("true", "yes", "y", "1", "有", "支持", "核显", "集显"):
+            return True
+        if text in ("false", "no", "n", "0", "无", "不支持", "none", "no igpu"):
+            return False
+
+    text = _upper(item)
+    compact = re.sub(r"[^A-Z0-9\u4e00-\u9fff]+", "", text)
+    if "INTEL" in text or "CORE" in text or compact.startswith(("I3", "I5", "I7", "I9", "U5", "U7", "U9")):
+        # Intel desktop F/KF suffix SKUs disable integrated graphics.
+        if re.search(r"\b(?:I[3579]|CORE\s+ULTRA\s+[3579]|U[3579])[-\s]?\d{3,5}[A-Z]*F\b", text):
+            return False
+        if re.search(r"\b\d{3,5}[A-Z]*F\b", text):
+            return False
+        return True
+
+    if "AMD" in text or "RYZEN" in text:
+        if re.search(r"\b\d{4,5}F\b", text):
+            return False
+        if re.search(r"\b\d{4,5}(?:G|GE|GT)\b", text):
+            return True
+        match = re.search(r"\b(?:RYZEN\s+\d\s*)?(\d{4,5})(?:X3D|X)?\b", text)
+        if match:
+            return int(match.group(1)) >= 7000
+    return None
+
+
 def infer_rgb(item):
     """Infer RGB from explicit field and common model keywords."""
     text = _upper(item)
@@ -220,7 +288,11 @@ def infer_radiator_mm(item):
 def enrich_item(section, item):
     """Return a shallow enriched copy for query/compatibility scripts."""
     enriched = dict(item)
-    if section == "memory":
+    if section == "cpus":
+        integrated_graphics = infer_cpu_integrated_graphics(enriched)
+        if integrated_graphics is not None:
+            enriched["integrated_graphics"] = integrated_graphics
+    elif section == "memory":
         timing = infer_timing(enriched)
         if timing:
             enriched["timing"] = timing

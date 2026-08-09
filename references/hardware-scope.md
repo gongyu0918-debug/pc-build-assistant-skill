@@ -5,6 +5,7 @@
 - Intel: 12/13/14 代 Core 台式机 + Core Ultra 200S 台式机
   - Plus 只作为 250K Plus/250KF Plus/270K Plus 等具体型号后缀
 - AMD: Ryzen 5 / Ryzen 7 / Ryzen 9 AM5 台式机优先；AM4 只保留 Ryzen 5/7 X3D + B550 + DDR4 的低预算 FPS 例外路线。明确查询该路线时给 CPU/主板命令加 `--socket AM4 --sort tier`，脚本只放行 AM4 X3D 与 B550；审计其他旧平台才使用 `--include-legacy`
+- 无独显整机允许当前范围内已确认带核显的 Intel 非 F/KF、AMD APU/AM5 非 F 型号；必须用 `--integrated-graphics yes` 查询，不按型号印象手选核显。
 - 不收录: AM4 非 X3D 新装机路线、A520 搭高功耗 X3D 默认方案、Intel 11 代及更早、二手/99新/翻新/矿卡
 
 ## GPU
@@ -18,6 +19,8 @@
 ## 主板
 
 品牌: ASUS, Gigabyte, MSI, ASRock, Colorful, Maxsun, Biostar
+
+- 无独显整机只使用已由厂商规格核实 `display_outputs` 的主板；用 `--display-output any` 查询，明确接口时按 HDMI/DisplayPort/VGA 过滤。
 
 ## 内存
 

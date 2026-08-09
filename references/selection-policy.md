@@ -10,6 +10,7 @@
 
 ## CPU 和平台倾向
 
+- 无独显、核显装机或 APU 需求先用 `--integrated-graphics yes` 收窄 CPU，再用 `--display-output any` 收窄主板；用户明确显示器输入时按 HDMI/DisplayPort/VGA 精确过滤。Intel F/KF、AMD F、核显状态未知 CPU 和视频输出字段未知主板不得用于“完整通过”的无独显整机。
 - 低价位优先 Intel 12/13/14 代 + B760 D4 + DDR4。这个组合整体价格低、配件成熟，适合 4000-7000 元段保显卡预算；6000 元档先按这条路线试配。
 - AM4 X3D 只作为低预算热门 FPS 例外路线；具体启用条件、B550/D4 搭配和报告取舍见 `scenarios.md`。
 - AMD AM5 默认从 Ryzen 5 9600X 起步；预算更高时再上 Ryzen 7 9700X/9800X3D。非 X3D 多核心生产力预算足够时优先 Ryzen 9 9950X；Ryzen 9 9900X 只有在价格、核心数和工作流收益明确时作为取舍，避免跨 CCD 延迟影响部分场景表现。不要在 8000 元以上配置里默认用 Ryzen 5 7500F。

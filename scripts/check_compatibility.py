@@ -18,7 +18,13 @@ from pathlib import Path
 
 import yaml
 
-from component_inference import enrich_item, infer_native_16pin_psu, infer_requires_16pin_gpu
+from component_inference import (
+    enrich_item,
+    infer_cpu_integrated_graphics,
+    infer_native_16pin_psu,
+    infer_requires_16pin_gpu,
+    normalize_display_outputs,
+)
 from power_budget import (
     DEFAULT_NON_CORE_POWER_W,
     PSU_HEADROOM_FACTOR,
@@ -128,44 +134,13 @@ class CompatibilityChecker:
 
     def _cpu_has_integrated_graphics(self, cpu):
         """Conservatively infer whether the CPU can provide display output."""
-        if not cpu:
-            return False
-        explicit = cpu.get("integrated_graphics")
-        if explicit is None:
-            explicit = cpu.get("has_integrated_graphics")
-        if explicit is not None:
-            if isinstance(explicit, bool):
-                return explicit
-            text = str(explicit).strip().lower()
-            if text in ("true", "yes", "y", "1", "有", "核显", "集显"):
-                return True
-            if text in ("false", "no", "n", "0", "无", "none", "no igpu"):
-                return False
+        return infer_cpu_integrated_graphics(cpu or {}) is True
 
-        model = str(cpu.get("model", ""))
-        brand = str(cpu.get("brand", ""))
-        text = f"{brand} {model}".upper()
-        compact = self._normalize(text)
-
-        if "INTEL" in text or "CORE" in text or compact.startswith(("I3", "I5", "I7", "I9", "U5", "U7", "U9")):
-            # Intel desktop F/KF suffix SKUs normally disable integrated graphics.
-            if re.search(r"\b(?:I[3579]|CORE\s+ULTRA\s+[579]|U[579])[-\s]?\d{3,5}[A-Z]*F\b", text):
-                return False
-            if re.search(r"\b\d{3,5}[A-Z]*F\b", text):
-                return False
-            return True
-
-        if "AMD" in text or "RYZEN" in text:
-            # Ryzen G/GT APUs and mainstream AM5 Ryzen 7000/8000/9000 non-F SKUs have display output.
-            if re.search(r"\b\d{4,5}F\b", text):
-                return False
-            if re.search(r"\b\d{4,5}(?:G|GE|GT)\b", text):
-                return True
-            match = re.search(r"\b(?:RYZEN\s+\d\s*)?(\d{4,5})(?:X3D|X)?\b", text)
-            if match:
-                number = int(match.group(1))
-                return number >= 7000
-        return False
+    @staticmethod
+    def _motherboard_display_outputs(mb):
+        """Return maintainer-verified motherboard display output types."""
+        outputs = (mb or {}).get("display_outputs")
+        return normalize_display_outputs(outputs)
 
     # --- 12 类基础检查函数 ---
 
@@ -554,7 +529,25 @@ class CompatibilityChecker:
         checks = []
         self._add_check(checks, "CPU↔主板", self.check_cpu_motherboard(cpu, mb))
         if not gpus and self._cpu_has_integrated_graphics(cpu):
-            self._add_check(checks, "显示输出", {"type": "success", "msg": "未选择独显，CPU可提供核显显示输出"})
+            display_outputs = self._motherboard_display_outputs(mb)
+            self._add_check(
+                checks,
+                "显示输出",
+                (
+                    {
+                        "type": "success",
+                        "msg": (
+                            "未选择独显，CPU已确认带核显；主板已核实视频输出接口: "
+                            + "/".join(display_outputs)
+                        ),
+                    }
+                    if display_outputs
+                    else {
+                        "type": "msg",
+                        "msg": "未选择独显，CPU已确认带核显；主板视频输出接口未记录，需复核后才能完整通过",
+                    }
+                ),
+            )
         mem_results = self.check_memory_motherboard(mem, mb)
         for r in mem_results:
             self._add_check(checks, "内存↔主板", r)

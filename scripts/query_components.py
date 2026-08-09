@@ -22,7 +22,14 @@ from pathlib import Path
 
 import yaml
 
-from component_inference import enrich_item, infer_gpu_cooling, infer_gpu_vram
+from component_inference import (
+    enrich_item,
+    infer_cpu_integrated_graphics,
+    infer_gpu_cooling,
+    infer_gpu_vram,
+    normalize_display_output,
+    normalize_display_outputs,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -91,12 +98,14 @@ class QuerySpec:
     max_capacity: int | None = None
     pcie_generation: int | None = None
     dram_cache: bool | None = None
+    integrated_graphics: bool | None = None
+    display_output: str | None = None
 
 DEDUPE_SPEC_FIELDS = {
-    "cpu": ("socket", "power_w"),
+    "cpu": ("socket", "power_w", "integrated_graphics"),
     "mb": (
         "socket", "memory_generations", "form_factor", "memory_slots",
-        "memory_freq_max", "m2_slots", "sata_ports",
+        "memory_freq_max", "m2_slots", "sata_ports", "display_outputs",
     ),
     "memory": ("generation", "capacity_gb", "module_count", "frequency_mt", "timing", "color", "rgb"),
     "storage": ("capacity_gb", "capacity_tb", "interface", "pcie_generation", "form_factor", "dram_cache"),
@@ -136,10 +145,12 @@ SUMMARY_BASE_FIELDS = [
     "price_age_days", "price_stale",
 ]
 SUMMARY_FIELDS_BY_CATEGORY = {
-    "cpu": SUMMARY_BASE_FIELDS + ["platform", "socket", "cores_threads", "cores", "threads", "power_w"],
+    "cpu": SUMMARY_BASE_FIELDS + [
+        "platform", "socket", "cores_threads", "cores", "threads", "power_w", "integrated_graphics",
+    ],
     "mb": SUMMARY_BASE_FIELDS + [
         "platform", "socket", "chipset", "memory_generations", "memory_slots",
-        "memory_freq_max", "m2_slots", "sata_ports", "form_factor", "color",
+        "memory_freq_max", "m2_slots", "sata_ports", "display_outputs", "form_factor", "color",
     ],
     "memory": SUMMARY_BASE_FIELDS + [
         "generation", "capacity_gb", "module_count", "frequency_mt", "timing", "color", "rgb",
@@ -847,6 +858,15 @@ def _matches_memory_gen(section, item, requested):
     return True
 
 
+def _matches_display_output(item, requested):
+    """Match verified motherboard display output types for iGPU builds."""
+    outputs = normalize_display_outputs(item.get("display_outputs"))
+    if compact_text(requested) == "ANY":
+        return bool(outputs)
+    wanted = normalize_display_output(requested)
+    return bool(wanted and wanted in outputs)
+
+
 def _normalize_form_factor(ff):
     text = compact_text(ff)
     mapping = {"MICROATX": "MATX", "M-ATX": "MATX", "MINIITX": "ITX"}
@@ -1217,7 +1237,15 @@ def _query_core_components(spec):
                     continue
             if spec.socket and sec in ("cpus", "motherboards") and not _matches_socket(item, spec.socket):
                 continue
+            if (
+                sec == "cpus"
+                and spec.integrated_graphics is not None
+                and infer_cpu_integrated_graphics(item) is not spec.integrated_graphics
+            ):
+                continue
             if spec.chipset and sec == "motherboards" and compact_text(spec.chipset) not in compact_text(item.get("chipset")):
+                continue
+            if sec == "motherboards" and spec.display_output and not _matches_display_output(item, spec.display_output):
                 continue
             if spec.memory_gen and not _matches_memory_gen(sec, item, spec.memory_gen):
                 continue
@@ -1268,7 +1296,8 @@ def query(category=None, budget=None, platform=None, color=None,
           resolution=None, min_refresh=None, air_flow=None, dust_filter=None,
           fan_size=None, blade_direction=None, linkable=None, screen=None,
           radiator_bundle=None, fan_type=None, model=None, item_id=None,
-          max_capacity=None, pcie_generation=None, dram_cache=None):
+          max_capacity=None, pcie_generation=None, dram_cache=None,
+          integrated_graphics=None, display_output=None):
     """查询配件。返回匹配的配件列表。"""
     spec = QuerySpec(
         category=category,
@@ -1306,6 +1335,8 @@ def query(category=None, budget=None, platform=None, color=None,
         max_capacity=max_capacity,
         pcie_generation=pcie_generation,
         dram_cache=dram_cache,
+        integrated_graphics=integrated_graphics,
+        display_output=display_output,
     )
     if category == "case":
         return _query_cases(spec)
@@ -1573,7 +1604,8 @@ def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
               chipset=None, memory_gen=None, form_factor=None, max_length=None,
               gpu_cooling="air", gpu_chip=None, min_vram=None, min_capacity=None,
               include_workstation_gpu=False, showcase=None, air_flow=None, dust_filter=None,
-              model=None, item_id=None, max_capacity=None):
+              model=None, item_id=None, max_capacity=None, integrated_graphics=None,
+              display_output=None):
     """Return core PC candidates grouped by category for smoke/progressive disclosure."""
     grouped = {}
     for category in CORE_CATEGORIES:
@@ -1600,6 +1632,8 @@ def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
             model=model,
             item_id=item_id,
             include_workstation_gpu=include_workstation_gpu,
+            integrated_graphics=integrated_graphics if category == "cpu" else None,
+            display_output=display_output if category == "mb" else None,
             showcase=showcase if category == "case" else None,
             air_flow=air_flow if category == "case" else None,
             dust_filter=dust_filter if category == "case" else None,
@@ -1648,8 +1682,17 @@ def summarize(item, category=None):
 
 def display_extra(category, item):
     """Keep plain-text summaries compact while exposing the key routing field."""
+    if category == "cpu":
+        integrated_graphics = infer_cpu_integrated_graphics(item)
+        if integrated_graphics is True:
+            return "iGPU=yes"
+        if integrated_graphics is False:
+            return "iGPU=no"
     if category == "mb" and item.get("chipset"):
-        return f"chipset={item.get('chipset')}"
+        parts = [f"chipset={item.get('chipset')}"]
+        if item.get("display_outputs"):
+            parts.append("display=" + "/".join(str(value) for value in item.get("display_outputs")))
+        return " ".join(parts)
     if category == "gpu" and item.get("chip"):
         parts = [f"chip={item.get('chip')}"]
         if item.get("vram_gb"):
@@ -1739,6 +1782,18 @@ def _build_parser():
     parser.add_argument("--model", help="型号关键词过滤，用于定位用户给出的现有配件")
     parser.add_argument("--id", dest="item_id", help="精确库内 ID 过滤")
     parser.add_argument("--platform", help="平台过滤 (intel/amd)")
+    parser.add_argument(
+        "--integrated-graphics",
+        "--igpu",
+        choices=["yes", "no"],
+        help="CPU 核显过滤；无独显整机使用 yes，未知核显状态不会进入结果",
+    )
+    parser.add_argument(
+        "--display-output",
+        "--video-output",
+        choices=["any", "HDMI", "DisplayPort", "DP", "VGA", "D-Sub", "DVI", "USB-C", "Thunderbolt"],
+        help="主板已核实视频输出过滤（any/HDMI/DisplayPort/VGA）；无独显整机至少使用 any",
+    )
     parser.add_argument("--socket", help="CPU/主板 socket 过滤 (LGA1700/AM5/LGA1851)")
     parser.add_argument("--chipset", help="主板芯片组过滤 (B760/B850/X870/Z890 等)")
     parser.add_argument("--memory-gen", help="内存代际过滤 (DDR4/DDR5)，作用于主板和内存")
@@ -1842,6 +1897,8 @@ def _run_grouped_query(args):
         showcase=args.showcase,
         air_flow=args.air_flow,
         dust_filter=_optional_bool(args.dust_filter),
+        integrated_graphics=_optional_bool(args.integrated_graphics),
+        display_output=args.display_output,
     )
 
 
@@ -1881,6 +1938,8 @@ def _run_single_query(args):
         screen=_optional_bool(args.screen) if args.category == "fan" else None,
         radiator_bundle=args.radiator_bundle if args.category == "fan" else None,
         fan_type=args.fan_type if args.category == "fan" else None,
+        integrated_graphics=_optional_bool(args.integrated_graphics) if args.category == "cpu" else None,
+        display_output=args.display_output if args.category == "mb" else None,
     )
 
 
