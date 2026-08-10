@@ -737,6 +737,10 @@ def keep_identity_matches_without_untrusted_prices(category, results):
         lookup_item = dict(item)
         lookup_item["price_cny"] = None
         lookup_item["price_status"] = "needs_market_quote"
+        # A foreign user quote may have preserved the original CNY quote in
+        # base_price_* fields.  Remember that the current CNY lookup rejected
+        # that quote so projection cannot revive it later.
+        lookup_item["_cny_price_suppressed"] = True
         kept.append(lookup_item)
     return kept
 
@@ -917,6 +921,14 @@ def _has_usable_price(item):
 
 def _selected_price_view(item):
     """Project one coherent amount/status/date quote in the requested currency."""
+    if _QUERY_CURRENCY == "CNY" and item.get("_cny_price_suppressed"):
+        return {
+            "price": 0,
+            "price_currency": "CNY",
+            "price_status": "needs_market_quote",
+            "price_date": None,
+            "price_note": None,
+        }
     user_currency = item.get("user_price_currency", item.get("price_currency"))
     user_price = item.get("user_price", item.get("active_price"))
     if user_currency == _QUERY_CURRENCY and item.get("price_status") == "user_quote":
@@ -970,7 +982,7 @@ def _project_selected_price(item):
     view = _selected_price_view(item)
     for internal_field in (
         "active_price", "user_price", "user_price_currency", "user_price_date",
-        "base_price_status", "base_price_date", "user_quote_note",
+        "base_price_status", "base_price_date", "user_quote_note", "_cny_price_suppressed",
     ):
         projected.pop(internal_field, None)
     projected.update({

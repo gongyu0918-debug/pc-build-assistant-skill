@@ -33,7 +33,9 @@ GITHUB_RAW_HOST = "raw.githubusercontent.com"
 COMPONENT_CATALOGUE = "data/components.yaml"
 CASE_CATALOGUE = "data/cases.yaml"
 ALLOWED_CATALOGUES = frozenset({COMPONENT_CATALOGUE, CASE_CATALOGUE})
-TAG_PATTERN = re.compile(r"^v0\.0\.(\d+)$")
+MAX_VERSION_SEGMENT_DIGITS = 9
+VERSION_SEGMENT_PATTERN = rf"(0|[1-9]\d{{0,{MAX_VERSION_SEGMENT_DIGITS - 1}}})"
+TAG_PATTERN = re.compile(rf"^v{VERSION_SEGMENT_PATTERN}\.{VERSION_SEGMENT_PATTERN}\.{VERSION_SEGMENT_PATTERN}$")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 DEFAULT_VERSION_COUNT = 5
 DEFAULT_RECENT_COUNT = 3
@@ -81,7 +83,8 @@ def canonical_version(value):
 
 
 def version_key(value):
-    return int(TAG_PATTERN.fullmatch(canonical_version(value)).group(1))
+    match = TAG_PATTERN.fullmatch(canonical_version(value))
+    return tuple(int(part) for part in match.groups())
 
 
 def catalogue_relative_path(item_id):
@@ -189,7 +192,7 @@ def discover_versions(count, fetcher=fetch_bytes, timeout=DEFAULT_TIMEOUT_SECOND
             versions.add(version)
     selected = sorted(versions, key=version_key, reverse=True)[:count]
     if not selected:
-        raise QueryError("versions_not_found", "no supported v0.0.x GitHub tags were found")
+        raise QueryError("versions_not_found", "no supported semantic-version GitHub tags were found")
     return [
         resolve_version(version, fetcher, timeout, max_bytes)
         for version in sorted(selected, key=version_key)
@@ -475,7 +478,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Compare an exact component ID across published package versions.")
     parser.add_argument("--id", required=True, help="精确组件 ID；不跨 SKU 合并")
     parser.add_argument("--catalog", action="append", default=[], metavar="VERSION=PATH", help="本地版本目录或单个 catalog 文件，可重复")
-    parser.add_argument("--version", action="append", default=[], help="显式 GitHub v0.0.x tag，可重复")
+    parser.add_argument("--version", action="append", default=[], help="显式 GitHub vMAJOR.MINOR.PATCH tag，可重复")
     parser.add_argument("--versions", type=int, default=DEFAULT_VERSION_COUNT, help="未显式指定 tag 时读取最近几个 GitHub tag")
     parser.add_argument("--recent", type=int, default=DEFAULT_RECENT_COUNT, help="用最近几个有价格的版本比较涨跌")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)

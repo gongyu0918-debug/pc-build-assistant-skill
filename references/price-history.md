@@ -5,7 +5,7 @@
 ## 查询方式
 
 - 先用 `scripts/query_components.py` 确认精确组件 ID，再传给 `query_price_history.py --id`。只按完整 ID 匹配，不把同芯片、相似型号、不同容量、颜色或散热版本合并。
-- 默认从固定官方 GitHub 仓库读取最近 5 个 `v0.0.x` tag；每个 tag 先解引用为 commit SHA，再按该 SHA 读取目标 ID 所在的 `data/components.yaml` 或 `data/cases.yaml`。也可用 `--version` 指定 tag。
+- 默认从固定官方 GitHub 仓库读取最近 5 个严格三段语义版本 tag（如 `v0.0.39`、`v0.1.0`）；每个 tag 先解引用为 commit SHA，再按该 SHA 读取目标 ID 所在的 `data/components.yaml` 或 `data/cases.yaml`。也可用 `--version` 指定 tag。
 - 网络不可用，或 Agent 已从其他平台取得特定版本文件时，使用可重复的 `--catalog VERSION=PATH`。PATH 可以是包含 `data/` 的版本目录，也可以是单个组件或机箱 catalog 文件；提供本地 catalog 后不联网。
 - SkillHub.cn 和 ClawHub 只作为 GitHub 缺版本时由 Agent 人工取得文件的备用或交叉验证面；不要假设它们存在稳定公开 API。取得文件后仍交给同一 `--catalog` 路径查询。
 
