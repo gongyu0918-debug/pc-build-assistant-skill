@@ -1,6 +1,6 @@
 ---
 name: pc-build-assistant
-description: 中文市场台式机装机配置助手。用户要按预算和用途选购、升级或评估台式机硬件，询问装机 DIY、配置单、整机推荐、配置补全、搭配检查、兼容性、预算分配或硬件选择原理时使用。覆盖游戏和直播、本地 AI 与内容生产、开发与建模、外观和紧凑主机等场景。单独询问软件、游戏、agent 或教程使用方法时不要触发。使用离线配件库和程序化兼容检查，不凭记忆编型号、价格或兼容结论。Use for English desktop PC build planning, upgrades, compatibility checks, and hardware selection. English answers use China-market CNY reference data and do not claim local price or availability outside China. Do not use for laptops, server procurement, ordering or payment, remote control, or security isolation.
+description: 中文市场台式机装机配置助手。用户要按预算和用途选购、升级或评估台式机硬件，询问装机 DIY、配置单、整机推荐、配置补全、搭配检查、兼容性、预算分配或硬件选择原理时使用。覆盖游戏和直播、本地 AI 与内容生产、开发与建模、外观和紧凑主机等场景。支持 Agent 将用户文字或图片中的硬件与报价整理为显式本地 overlay。单独询问软件、游戏、agent 或教程使用方法时不要触发。使用离线配件库和程序化兼容检查，不凭记忆编型号、价格或兼容结论。Use for English desktop PC build planning, upgrades, compatibility checks, hardware selection, and explicit user-supplied local price catalogs. Without a matching user overlay, English answers use China-market CNY references and do not claim local price or availability. Do not use for laptops, server procurement, ordering or payment, remote control, or security isolation.
 metadata:
   display_name: PC Build Assistant
   tags: pc-build,hardware,chinese-market,compatibility,english
@@ -16,7 +16,7 @@ license: MIT
 ## 工作流
 
 1. 所有需求先读 `references/routing.md`。需要具体型号、完整配置、升级、补全或搭配检查时，再读 `references/selection-policy.md`。
-2. 按需读取场景与模式：具体用途、外观或形态读 `references/scenarios.md`；升级、补全、检查和精确替换读 `references/workflows.md`；硬件问答读 `references/hardware-faq.md`；游戏帧率读 `references/game-performance.md`；给出具体型号、报价或兼容结论时还要读 `references/pricing.md` 和 `references/compatibility.md`。
+2. 按需读取场景与模式：具体用途、外观或形态读 `references/scenarios.md`；升级、补全、检查和精确替换读 `references/workflows.md`；用户用文字或图片补充硬件/报价时读 `references/user-catalog.md`；硬件问答读 `references/hardware-faq.md`；游戏帧率读 `references/game-performance.md`；历史价格或涨跌趋势读 `references/price-history.md`；给出具体型号、报价或兼容结论时还要读 `references/pricing.md` 和 `references/compatibility.md`。
 3. 查候选时运行 `scripts/query_components.py`，不要直接打开 `data/*.yaml`。完整配置分别查询 CPU、主板、内存、硬盘、显卡、散热、电源、机箱；中高端显卡、主板、SSD 和内存使用 `--sort tier`。用户明确不要独显时，CPU 查询加 `--integrated-graphics yes`，主板查询加 `--display-output any`，并跳过显卡查询。`--budget` 是单品价格上限，不是整机预算。
 4. 最终推荐必须运行 `scripts/check_compatibility.py --strict --require-complete` 并传入全部实际选用的核心配件；核显整机不传 `--gpu`。存在硬不兼容时更换配件；有待复核字段时优先换字段完整候选，否则列明具体复核项，不得写成完整通过。
 5. 处理价格。离线库优先；离线库不足、价格日期超过 14 天或用户要求实时价格时，再搜索当前市场价。
@@ -29,7 +29,8 @@ license: MIT
 ## 硬规则
 
 - 不编型号、价格、帧率或兼容性结果。
-- 默认只输出人民币价格，并标注价格参考日期；英语叶子仅在用户明确要求时可附加已核实汇率的外币估算，人民币原价仍须保留。缺价条目不参与总价。
+- 运行随包 Python 脚本统一使用 `python -B`，避免在只读安装包中生成 `__pycache__` / `.pyc`。
+- 默认只输出人民币价格，并标注价格参考日期；用户显式提供本地币种 overlay 时只按该币种查询、排序和合计，不做换算或跨币种混算，人民币基础价仍保留为独立参考。缺价条目不参与总价。
 - 默认只推荐可核验的新品渠道报价；二手、翻新和不确定到手价不进入默认总价。
 - 公开输出使用中性候选池表达，不输出品牌贬损、商业背书或内部来源信息。
 - 白色配置必须使用白色/白色系配件；黑色配置使用黑色或中性色；无光/纯性能需求不要为灯效和外观溢价牺牲核心性能。

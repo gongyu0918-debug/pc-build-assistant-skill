@@ -16,8 +16,6 @@ import re
 import sys
 from pathlib import Path
 
-import yaml
-
 from component_inference import (
     enrich_item,
     infer_cpu_integrated_graphics,
@@ -31,6 +29,7 @@ from power_budget import (
     PSU_TIGHT_MARGIN_W,
     recommended_psu_w,
 )
+from catalog_overlay import OverlayError, load_catalog_sections, resolve_catalog, resolve_id
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -523,6 +522,14 @@ class CompatibilityChecker:
                     checks.append(("完整性", {"type": "error", "msg": f"严格模式缺少{label}"}))
             if not gpus and not self._cpu_has_integrated_graphics(cpu):
                 checks.append(("完整性", {"type": "error", "msg": "严格模式缺少独显，且CPU未确认带核显"}))
+            parts = [cpu, mb, *mem, *storage, *gpus, psu, cooler, case]
+            for item in (part for part in parts if part):
+                missing = item.get("_overlay_incomplete_fields", [])
+                if missing:
+                    checks.append(("用户配件完整性", {
+                        "type": "msg",
+                        "msg": f"用户配件 {item.get('id')} 缺少兼容关键字段: {', '.join(missing)}",
+                    }))
         return checks
 
     def _compatibility_checks(self, cpu, mb, mem, storage, gpus, psu, cooler, case):
@@ -644,23 +651,15 @@ class CompatibilityChecker:
         return self._summarize_checks(completeness + compatibility)
 
 
-def load_components():
+def load_components(overlay_paths=None):
     """加载 components.yaml 和 cases.yaml。"""
+    sections = load_catalog_sections(DATA)
+    sections, _, alias_index = resolve_catalog(sections, overlay_paths or [], data_dir=DATA)
     by_id = {}
-    components_path = DATA / "components.yaml"
-    if components_path.exists():
-        with components_path.open("r", encoding="utf-8") as f:
-            lib = yaml.safe_load(f) or {}
-        for section in ["cpus", "motherboards", "memory", "storage", "gpus", "coolers", "psus"]:
-            for item in lib.get(section, []):
-                by_id[item["id"]] = enrich_item(section, item)
-    cases_path = DATA / "cases.yaml"
-    if cases_path.exists():
-        with cases_path.open("r", encoding="utf-8") as f:
-            cases = yaml.safe_load(f) or {}
-        for item in cases.get("cases", []):
-            by_id[item["id"]] = item
-    return by_id
+    for section, items in sections.items():
+        for item in items:
+            by_id[item["id"]] = enrich_item(section, item)
+    return by_id, alias_index
 
 
 def main():
@@ -674,6 +673,7 @@ def main():
     parser.add_argument("--psu", help="电源 ID")
     parser.add_argument("--cooler", help="散热 ID")
     parser.add_argument("--case", help="机箱 ID")
+    parser.add_argument("--overlay", action="append", default=[], help="显式用户 overlay JSON；可重复，后传报价优先")
     parser.add_argument("--strict", action="store_true", help="严格模式: 最终整机必须包含核心配件")
     parser.add_argument(
         "--require-complete",
@@ -683,13 +683,22 @@ def main():
     parser.add_argument("--json", action="store_true", help="输出 JSON 格式")
     args = parser.parse_args()
 
-    by_id = load_components()
+    try:
+        by_id, alias_index = load_components(args.overlay)
+    except OverlayError as exc:
+        print(json.dumps({"ok": False, "errors": [exc.as_dict()]}, ensure_ascii=False), file=sys.stderr)
+        return 2
     missing_ids = []
 
     def get(id_str):
         if not id_str:
             return None
-        item = by_id.get(id_str)
+        try:
+            resolved_id = resolve_id(id_str, by_id, alias_index)
+        except OverlayError as exc:
+            print(json.dumps({"ok": False, "errors": [exc.as_dict()]}, ensure_ascii=False), file=sys.stderr)
+            raise SystemExit(2)
+        item = by_id.get(resolved_id) if resolved_id else None
         if item is None:
             missing_ids.append(id_str)
         return item

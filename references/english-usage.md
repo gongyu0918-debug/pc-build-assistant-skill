@@ -13,7 +13,7 @@ Read this file when the user's request is primarily in English or explicitly ask
 ## Translation layer
 
 - Treat Chinese references as the single source of selection rules. Read only the references required by the request and use their content as internal evidence; do not copy their headings, sentences, or user-facing labels.
-- After querying and checking compatibility, reduce the result to structured facts: exact model, specification, CNY price, price date, compatibility finding, trade-off, and verification item. Write the final response from those facts in English.
+- After querying and checking compatibility, reduce the result to structured facts: exact model, specification, selected price and currency, price date, compatibility finding, trade-off, and verification item. Write the final response from those facts in English.
 - Use these user-facing labels: `CPU`, `Motherboard`, `Memory`, `Storage`, `Graphics card`, `CPU cooler`, `Power supply`, `Case`, `Case fans`, `Display`, `Unit price`, `Total`, `Budget difference`, `Compatibility`, and `Local buying note`.
 - Before sending, review the answer for Chinese text. Chinese characters are allowed only inside an exact product or model name returned by the catalog. Rewrite Chinese headings, explanations, compatibility messages, dates, and internal status text in English.
 
@@ -36,9 +36,12 @@ Read this file when the user's request is primarily in English or explicitly ask
 ## Market boundary
 
 - The bundled catalog and channel quotes describe the Chinese market and use CNY.
+- If the user supplies local prices in text or an image, read `user-catalog.md`. Convert the evidence into the documented JSON only after checking the exact SKU and currency, validate it, and pass the same explicit overlay to both query and compatibility commands. The scripts never question the user, inspect images, browse, or discover local files; the Agent owns those steps.
+- Prefer an exact base `target_id` when the bundled catalog already has the SKU: a quote patch inherits its specifications without overwriting them. For a genuinely new SKU, use a `user-<category>-...` ID. Search an official product page only for compatibility-critical fields absent from both the base catalog and the user's evidence; otherwise ask the user to supplement them and keep the result review-required.
+- A selected user overlay currency is a local user quote, not a converted China-market quote. Keep currencies separate and never add, compare, budget-filter, or sort CNY and non-CNY prices together. Preserve the bundled CNY value only as a separate reference field.
 - Do not present a currency conversion as a local retail quote. Do not claim that a listed model, suffix, color, warranty, stock level, or price is available in the user's country.
 - If the user asks what to buy locally, provide hardware criteria and a China-market reference build, then ask them to verify equivalent local SKUs, retailers, warranty terms, stock, and prices.
-- Do not convert currencies by default. A budget stated in USD or another non-CNY currency counts as a request for conversion: verify a current exchange rate before querying, translate the budget into a CNY target, retain the CNY total, and show an approximate total in the user's currency. State the exchange-rate date and make clear that the conversion is not a local retail quote.
+- Do not convert currencies by default. A budget stated in USD or another non-CNY currency counts as a request for conversion only when no matching user-price overlay exists: verify a current exchange rate before querying, translate the budget into a CNY target, retain the CNY total, and show an approximate total in the user's currency. State the exchange-rate date and make clear that the conversion is not a local retail quote.
 - For every non-CNY budget, the final market note must name the checked exchange-rate date; a conversion statement without that date is incomplete.
 - Keep the CNY component total separate from local tax, shipping, rebates, and checkout-only discounts. Show those separately only when the user asks.
 - Exclude RTX 5090D and RTX 5090D V2 from default English recommendations. Compare them only when the user explicitly asks about China-region GPU variants.
@@ -51,7 +54,7 @@ Read this file when the user's request is primarily in English or explicitly ask
 - For a complete build, use the columns `Component | Exact model | Unit price | Local buying note`. Keep exact product model names.
 - Leave `Local buying note` blank for CPU, motherboard, memory, storage, and graphics-card rows. Fill it only for each selected CPU cooler, power supply, case, and case-fan row, unless a standard row has a documented regional restriction.
 - Give one primary build. Add one compact alternative only when the request has a genuine decision fork.
-- Show every selected component price in CNY, the total in CNY, the reference date, compatibility result, trade-offs, and specific items that still need verification.
+- Use one price currency per total. Without a matching user overlay, show every selected component and the total in CNY. With an explicit overlay, total only rows carrying the selected matching currency; never add uncovered CNY rows to a USD/EUR/GBP/JPY/TWD subtotal. If the overlay does not price every required row, state that local-price coverage is partial and do not claim a complete local-currency total.
 - Take the reference date only from the current query result or bundled catalog metadata used for the quote. Never reuse a date from an example, an older report, or memory.
 - Keep the report compact: eight core component rows, optional fan or display rows when requested, total, compatibility result, two to four useful trade-offs, and one market note. Do not expose command names, exit codes, internal status labels, test markers, raw templates, or Chinese column labels.
 - Never expose words such as `strict`, `complete`, pass/check counts, skipped checks, or script status. When appropriate, say `The listed parts are compatible based on the available specifications`, then name only concrete items that still require verification.
@@ -59,12 +62,13 @@ Read this file when the user's request is primarily in English or explicitly ask
 - Use one natural market note that fits the request instead of repeating a fixed disclaimer:
   - Full quote: `CNY prices are China-market references dated YYYY-MM-DD; local price and stock can differ.`
   - Local buying request: `Treat these as China-market equivalents and verify local SKUs, warranty, stock, and store pricing.`
+  - User-price overlay: `The CUR prices are user-supplied observations dated YYYY-MM-DD; verify the exact SKU and checkout price.`
   - Currency request: `Using the exchange rate checked on YYYY-MM-DD, the CNY total is about USD X. This is a currency conversion; local prices and stock can differ.`
 - Do not stack these notes or repeat them after every component.
 
 ## Final check
 
-- Every queryable item required by the loaded Chinese scenario is a priced row and is included in the total.
+- Every queryable item required by the loaded Chinese scenario is a priced row in the selected currency and is included in that currency's total; otherwise the answer explicitly says coverage is partial and omits a mixed-currency total.
 - Exact catalog product names remain unchanged; Chinese text appears nowhere else.
 - Each selected cooler, power supply, case, and case-fan row has its own short local buying note.
 - Every displayed price date comes from the selected query result or current catalog metadata.

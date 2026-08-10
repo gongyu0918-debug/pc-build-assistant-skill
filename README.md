@@ -4,7 +4,7 @@
 
 - Skill slug: `pc-build-assistant`
 - 展示名称: `PC Build Assistant`
-- 当前版本: `0.0.39`
+- 当前版本: `0.1.0`
 - 许可证: MIT
 - 价格参考日期: 以所选条目 `price_date` 为准；整包参考日期运行时读取数据文件 metadata
 - 价格来源说明: 数据来自网络公开信息整理，仅供预算参考，不代表实时成交价或可下单价格。
@@ -15,12 +15,14 @@
 - 按 CPU、主板、内存、硬盘、显卡、电源、散热、机箱逐类查询候选。
 - 生成整机总价、预算差额、取舍说明和下单前复核点。
 - 使用 `scripts/check_compatibility.py --strict --require-complete` 检查接口、内存、显卡限长、电源余量、散热限高和机箱版型，并区分硬不兼容与字段待复核。
+- Agent 可把用户文字或图片里的本地硬件与报价整理为外部 JSON overlay；基础库已有的规格按精确 ID 继承，缺失的兼容字段继续保守复核。
+- 历史价格按精确组件 ID 查询已发布 GitHub tag，并绑定 tag 解引用后的 commit SHA；不在安装包中内置持续膨胀的历史数据库。
 
 ## 数据与价格说明
 
 Skill 默认使用离线库中的网络公开价格参考。硬件价格和库存变化很快，结果不构成购买承诺；下单前应核对实时价格、库存、保修、具体型号后缀、颜色版本、尺寸和供电接口。
 
-英文请求会按用户语言回答，默认仍列人民币。用户明确要求换算，或直接以美元等外币给出预算时，才在线核对当日汇率并附加约合金额；人民币原价和汇率日期必须保留，换算值只是货币估算，不是当地报价。用户需要在中国大陆以外购买时，应按推荐规格核对当地等效 SKU、零售商库存、保修和实际价格。
+英文请求会按用户语言回答。存在显式用户 overlay 时按其中选定的单一币种查询和汇总，不与人民币行混算；否则默认仍列人民币。用户明确要求换算，或直接以美元等外币给出预算且没有匹配 overlay 时，才在线核对当日汇率并附加约合金额；人民币原价和汇率日期必须保留，换算值只是货币估算，不是当地报价。
 
 每次输出配置报告时，Agent 都应提醒：
 
@@ -48,9 +50,12 @@ Skill 中的“热门采用 / 常见装机 / 新兴特色”候选池，只是�
 如果手动运行脚本，可在 Skill 根目录执行：
 
 ```bash
-python scripts/query_components.py --category gpu --budget 5000 --sort tier --limit 20
-python scripts/check_compatibility.py --strict --require-complete --cpu <cpu-id> --mb <mb-id> --mem <mem-id> --storage <ssd-id> --gpu <gpu-id> --psu <psu-id> --cooler <cooler-id> --case <case-id>
-python scripts/validate_library.py
+python -B scripts/query_components.py --category gpu --budget 5000 --sort tier --limit 20
+python -B scripts/check_compatibility.py --strict --require-complete --cpu <cpu-id> --mb <mb-id> --mem <mem-id> --storage <ssd-id> --gpu <gpu-id> --psu <psu-id> --cooler <cooler-id> --case <case-id>
+python -B scripts/import_user_catalog.py <draft.json> --validate-only --json
+python -B scripts/query_components.py --category gpu --overlay <user-catalog.json> --currency USD --json
+python -B scripts/query_price_history.py --id <component-id> --versions 5 --json
+python -B scripts/validate_library.py
 ```
 
 ## 文件结构
@@ -65,6 +70,7 @@ python scripts/validate_library.py
 │   ├── cases.yaml
 │   ├── displays.yaml
 │   ├── game_fps.yaml
+│   ├── hardware_name_aliases.json
 │   └── price_floors.yaml
 ├── references/
 │   ├── routing.md
@@ -74,13 +80,19 @@ python scripts/validate_library.py
 │   ├── hardware-faq.md
 │   ├── english-usage.md
 │   ├── game-performance.md
+│   ├── price-history.md
+│   ├── user-catalog.md
+│   ├── user-overlay.schema.json
 │   ├── pricing.md
 │   ├── compatibility.md
 │   └── hardware-scope.md
 └── scripts/
     ├── component_inference.py
+    ├── catalog_overlay.py
+    ├── import_user_catalog.py
     ├── query_components.py
     ├── query_game_fps.py
+    ├── query_price_history.py
     ├── check_compatibility.py
     └── validate_library.py
 ```

@@ -1,0 +1,835 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.invalid/pc-build-assistant/user-overlay.schema.json",
+    "title": "PC Build Assistant user catalog overlay",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema_version",
+        "currency"
+    ],
+    "properties": {
+        "schema_version": {
+            "const": "1.0"
+        },
+        "currency": {
+            "enum": [
+                "CNY",
+                "USD",
+                "EUR",
+                "GBP",
+                "JPY",
+                "TWD"
+            ]
+        },
+        "quote_patches": {
+            "type": "array",
+            "maxItems": 5000,
+            "items": {
+                "$ref": "#/$defs/quote"
+            }
+        },
+        "components": {
+            "type": "array",
+            "maxItems": 5000,
+            "items": {
+                "$ref": "#/$defs/component"
+            }
+        },
+        "aliases": {
+            "type": "array",
+            "maxItems": 5000,
+            "items": {
+                "$ref": "#/$defs/alias"
+            }
+        }
+    },
+    "$defs": {
+        "quote": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "target_id",
+                "price",
+                "price_date"
+            ],
+            "properties": {
+                "target_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "price": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "price_date": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "note": {
+                    "type": "string",
+                    "maxLength": 1000
+                }
+            }
+        },
+        "component": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "category",
+                "brand",
+                "model"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^user-(cpu|mb|memory|storage|gpu|cooler|psu|case|display|fan)-[a-z0-9][a-z0-9._-]*$"
+                },
+                "category": {
+                    "enum": [
+                        "cpu",
+                        "mb",
+                        "memory",
+                        "storage",
+                        "gpu",
+                        "cooler",
+                        "psu",
+                        "case",
+                        "display",
+                        "fan"
+                    ]
+                },
+                "brand": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "brand_en": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "model_en": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "base_component_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "specs": {
+                    "$ref": "#/$defs/specs"
+                },
+                "price": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "price_date": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "note": {
+                    "type": "string",
+                    "maxLength": 1000
+                }
+            },
+            "dependentRequired": {
+                "price": [
+                    "price_date"
+                ],
+                "price_date": [
+                    "price"
+                ]
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "cpu"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-cpu-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "platform",
+                                        "socket",
+                                        "power_w",
+                                        "integrated_graphics",
+                                        "cores_threads",
+                                        "cores",
+                                        "threads"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "mb"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-mb-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "platform",
+                                        "socket",
+                                        "chipset",
+                                        "memory_generations",
+                                        "memory_slots",
+                                        "memory_freq_max",
+                                        "m2_slots",
+                                        "sata_ports",
+                                        "display_outputs",
+                                        "form_factor",
+                                        "color"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "memory"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-memory-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "generation",
+                                        "capacity_gb",
+                                        "module_count",
+                                        "frequency_mt",
+                                        "timing",
+                                        "color",
+                                        "rgb"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "storage"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-storage-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "capacity_gb",
+                                        "capacity_tb",
+                                        "form_factor",
+                                        "interface",
+                                        "pcie_generation",
+                                        "storage_type",
+                                        "dram_cache",
+                                        "dram_cache_mb",
+                                        "series"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "gpu"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-gpu-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "chip",
+                                        "gpu_vendor",
+                                        "vram_gb",
+                                        "memory_type",
+                                        "memory_bus_bit",
+                                        "memory_bandwidth_gbps",
+                                        "gpu_cooling",
+                                        "gpu_radiator_required",
+                                        "length_mm",
+                                        "power_w",
+                                        "power_connectors",
+                                        "requires_16pin_psu",
+                                        "color",
+                                        "rgb"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "cooler"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-cooler-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "type",
+                                        "height_mm",
+                                        "radiator_mm",
+                                        "socket_support",
+                                        "color",
+                                        "rgb"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "psu"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-psu-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "wattage_w",
+                                        "form_factor",
+                                        "length_mm",
+                                        "efficiency",
+                                        "modular",
+                                        "native_16pin_gpu_power",
+                                        "color"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "case"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-case-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "colors",
+                                        "color",
+                                        "motherboard_support",
+                                        "gpu_length_mm",
+                                        "cpu_cooler_height_mm",
+                                        "radiator_support",
+                                        "fan_mounts",
+                                        "fan_slots_count",
+                                        "psu_support",
+                                        "psu_length_mm",
+                                        "psu_length_recommended_mm",
+                                        "psu_length_condition",
+                                        "air_flow_type",
+                                        "has_dust_filter",
+                                        "is_showcase"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "display"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-display-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "resolution",
+                                        "size_inch",
+                                        "refresh_rate_hz",
+                                        "color"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "category": {
+                                "const": "fan"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "id": {
+                                "pattern": "^user-fan-[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "specs": {
+                                "propertyNames": {
+                                    "enum": [
+                                        "size_mm",
+                                        "pack_count",
+                                        "blade_direction",
+                                        "color",
+                                        "rgb",
+                                        "is_linkable",
+                                        "has_screen",
+                                        "radiator_fan_bundle_mm",
+                                        "fan_type",
+                                        "default_recommend"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "specs": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "platform": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "socket": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "power_w": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "integrated_graphics": {
+                    "type": "boolean"
+                },
+                "cores_threads": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "cores": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "threads": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "chipset": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "memory_generations": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                    }
+                },
+                "memory_slots": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "memory_freq_max": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "m2_slots": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "sata_ports": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "display_outputs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                    }
+                },
+                "form_factor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "color": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "colors": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                    }
+                },
+                "generation": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "capacity_gb": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "capacity_tb": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "module_count": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "frequency_mt": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "timing": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "rgb": {
+                    "type": "boolean"
+                },
+                "interface": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "pcie_generation": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "storage_type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "dram_cache": {
+                    "type": "boolean"
+                },
+                "dram_cache_mb": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "series": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "chip": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "gpu_vendor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "vram_gb": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "memory_type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "memory_bus_bit": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "memory_bandwidth_gbps": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "gpu_cooling": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "gpu_radiator_required": {
+                    "type": "boolean"
+                },
+                "length_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "power_connectors": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                    }
+                },
+                "requires_16pin_psu": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "height_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "radiator_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "socket_support": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                    }
+                },
+                "wattage_w": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "efficiency": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "modular": {
+                    "type": "boolean"
+                },
+                "native_16pin_gpu_power": {
+                    "type": "boolean"
+                },
+                "motherboard_support": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                    }
+                },
+                "gpu_length_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "cpu_cooler_height_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "radiator_support": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    }
+                },
+                "fan_mounts": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "fan_slots_count": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "psu_support": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                    }
+                },
+                "psu_length_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "psu_length_recommended_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "psu_length_condition": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "air_flow_type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "has_dust_filter": {
+                    "type": "boolean"
+                },
+                "is_showcase": {
+                    "type": "boolean"
+                },
+                "resolution": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "size_inch": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "refresh_rate_hz": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "size_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "pack_count": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "blade_direction": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "is_linkable": {
+                    "type": "boolean"
+                },
+                "has_screen": {
+                    "type": "boolean"
+                },
+                "radiator_fan_bundle_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "fan_type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "default_recommend": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "alias": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "alias",
+                "target_id"
+            ],
+            "properties": {
+                "alias": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                },
+                "target_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                }
+            }
+        }
+    }
+}

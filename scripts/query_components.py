@@ -30,6 +30,7 @@ from component_inference import (
     normalize_display_output,
     normalize_display_outputs,
 )
+from catalog_overlay import CATEGORY_SECTIONS, OverlayError, load_catalog_sections, resolve_catalog, resolve_id
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -141,7 +142,8 @@ DISPLAY_NAMES = {
 
 # Summary fields per category — minimal fields needed for first-pass narrowing.
 SUMMARY_BASE_FIELDS = [
-    "id", "brand", "model", "price_cny", "price_status", "price_date",
+    "id", "brand", "model", "brand_en", "model_en", "normalization_status",
+    "price", "price_currency", "price_cny", "base_price_cny", "price_status", "price_date",
     "price_age_days", "price_stale",
 ]
 SUMMARY_FIELDS_BY_CATEGORY = {
@@ -269,32 +271,40 @@ PSU_COMMON_SIGNALS = (
 )
 
 
+_OVERLAY_PATHS = ()
+_QUERY_CURRENCY = "CNY"
+_RESOLVED_BY_ID = {}
+_ALIAS_INDEX = {}
+
+
 @lru_cache(maxsize=1)
+def _resolved_sections():
+    """Load the immutable base catalog and apply only explicitly supplied overlays."""
+    global _RESOLVED_BY_ID, _ALIAS_INDEX
+    sections = load_catalog_sections(DATA)
+    sections, _RESOLVED_BY_ID, _ALIAS_INDEX = resolve_catalog(sections, _OVERLAY_PATHS, data_dir=DATA)
+    for section, items in list(sections.items()):
+        sections[section] = [enrich_item(section, item) for item in items]
+    return sections
+
+
+def configure_overlays(paths, currency):
+    global _OVERLAY_PATHS, _QUERY_CURRENCY
+    _OVERLAY_PATHS = tuple(paths or ())
+    _QUERY_CURRENCY = currency
+    _resolved_sections.cache_clear()
+
+
 def load_components():
-    """Load components.yaml."""
-    with (DATA / "components.yaml").open("r", encoding="utf-8") as f:
-        lib = yaml.safe_load(f) or {}
-    for section, items in list(lib.items()):
-        if isinstance(items, list):
-            lib[section] = [enrich_item(section, item) for item in items]
-    return lib
+    return _resolved_sections()
 
 
-@lru_cache(maxsize=1)
 def load_cases():
-    """Load cases.yaml."""
-    with (DATA / "cases.yaml").open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    return {"cases": _resolved_sections().get("cases", [])}
 
 
-@lru_cache(maxsize=1)
 def load_displays():
-    """Load displays.yaml when the user explicitly asks for a monitor."""
-    path = DATA / "displays.yaml"
-    if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    return {"displays": _resolved_sections().get("displays", [])}
 
 
 _PRICE_FLOORS = None
@@ -410,7 +420,7 @@ def _matches_identity(item, model=None, item_id=None):
         return False
     if model:
         wanted = compact_text(model)
-        haystack = compact_text(" ".join(str(item.get(k, "")) for k in ("brand", "model", "id")))
+        haystack = compact_text(" ".join(str(item.get(k, "")) for k in ("brand", "model", "brand_en", "model_en", "id")))
         if wanted not in haystack:
             return False
     return True
@@ -688,12 +698,14 @@ def _low_price_floor(category, group_key, group_prices):
 
 def filter_low_price_outliers(category, results):
     """Remove low-price outliers from default tier results without setting an upper cap."""
+    if _QUERY_CURRENCY != "CNY":
+        return results
     if category not in {"cpu", "gpu", "storage", "memory"}:
         return results
     groups = {}
     if category != "cpu":
         for item in results:
-            price = _parse_num(item.get("price_cny"))
+            price = _query_price(item)
             key = _outlier_group_key(category, item)
             if key and price:
                 groups.setdefault(key, []).append(float(price))
@@ -704,7 +716,7 @@ def filter_low_price_outliers(category, results):
     kept = []
     for item in results:
         key = _outlier_group_key(category, item)
-        price = float(_parse_num(item.get("price_cny")))
+        price = float(_query_price(item))
         trusted_floor = _trusted_price_floor(category, item)
         if trusted_floor and price and price < trusted_floor:
             continue
@@ -819,8 +831,8 @@ def in_current_scope(section, item, include_workstation_gpu=False):
     if section == "coolers":
         height = _parse_num(item.get("height_mm"))
         radiator = _parse_int(item.get("radiator_mm"))
-        price = _parse_num(item.get("price_cny"))
-        return (bool(radiator) or float(height or 0) >= 120) and int(price or 0) >= 50
+        price_is_plausible = _QUERY_CURRENCY != "CNY" or _query_price(item) >= 50
+        return (bool(radiator) or float(height or 0) >= 120) and price_is_plausible
 
     if section == "psus":
         return parse_rated_wattage(item) >= 450
@@ -898,9 +910,82 @@ def _matches_form_factor(section, item, requested):
 
 def _has_usable_price(item):
     return (
-        item.get("price_status") != "needs_market_quote"
-        and _parse_num(item.get("price_cny")) > 0
+        _query_price_status(item) != "needs_market_quote"
+        and _query_price(item) > 0
     )
+
+
+def _selected_price_view(item):
+    """Project one coherent amount/status/date quote in the requested currency."""
+    user_currency = item.get("user_price_currency", item.get("price_currency"))
+    user_price = item.get("user_price", item.get("active_price"))
+    if user_currency == _QUERY_CURRENCY and item.get("price_status") == "user_quote":
+        return {
+            "price": _parse_num(user_price),
+            "price_currency": _QUERY_CURRENCY,
+            "price_status": "user_quote",
+            "price_date": item.get("user_price_date", item.get("price_date")),
+            "price_note": item.get("user_quote_note"),
+        }
+    if _QUERY_CURRENCY == "CNY":
+        price = _parse_num(item.get("base_price_cny", item.get("price_cny")))
+        status = item.get("base_price_status")
+        quoted_on = item.get("base_price_date")
+        if status is None and item.get("price_status") != "user_quote":
+            status = item.get("price_status")
+        if quoted_on is None and item.get("price_status") != "user_quote":
+            quoted_on = item.get("price_date")
+        selected_status = status or ("channel_quote" if price > 0 else "needs_market_quote")
+        return {
+            "price": 0 if selected_status == "needs_market_quote" else price,
+            "price_currency": "CNY",
+            "price_status": selected_status,
+            "price_date": quoted_on,
+            "price_note": None,
+        }
+    return {
+        "price": 0,
+        "price_currency": _QUERY_CURRENCY,
+        "price_status": "needs_market_quote",
+        "price_date": None,
+        "price_note": None,
+    }
+
+
+def _query_price(item):
+    """Return a price only in the explicitly selected currency; never convert."""
+    return _selected_price_view(item)["price"]
+
+
+def _query_price_status(item):
+    return _selected_price_view(item)["price_status"]
+
+
+def _query_price_date(item):
+    return _selected_price_view(item)["price_date"]
+
+
+def _project_selected_price(item):
+    projected = dict(item)
+    view = _selected_price_view(item)
+    for internal_field in (
+        "active_price", "user_price", "user_price_currency", "user_price_date",
+        "base_price_status", "base_price_date", "user_quote_note",
+    ):
+        projected.pop(internal_field, None)
+    projected.update({
+        "price": view["price"] or None,
+        "price_currency": view["price_currency"],
+        "price_status": view["price_status"],
+        "price_date": view["price_date"],
+    })
+    if view["price_currency"] == "CNY":
+        projected["price_cny"] = view["price"] or None
+    else:
+        projected.pop("price_cny", None)
+    if view["price_note"] is not None:
+        projected["price_note"] = view["price_note"]
+    return projected
 
 
 def _matches_max_length(section, item, max_length):
@@ -1007,7 +1092,7 @@ def _fan_tier(item):
         score += 2
     if item.get("fan_type") == "aio_frame":
         score -= 30
-    if item.get("price_cny") and item.get("price_date"):
+    if _query_price(item) and _query_price_date(item):
         score += 1
     return score
 
@@ -1113,15 +1198,15 @@ def _sort_results(results, sort, category=None):
     if sort == "tier":
         results.sort(key=lambda x: _tier_sort_key(category, x))
     elif sort in ("desc", "price-desc"):
-        results.sort(key=lambda x: (x.get("price_cny") is None, -_parse_num(x.get("price_cny")), x.get("id", "")))
+        results.sort(key=lambda x: (_query_price(x) <= 0, -_query_price(x), x.get("id", "")))
     else:
-        results.sort(key=lambda x: (x.get("price_cny") is None, _parse_num(x.get("price_cny")), x.get("id", "")))
+        results.sort(key=lambda x: (_query_price(x) <= 0, _query_price(x), x.get("id", "")))
 
 
 def _price_freshness(item, as_of=None):
     """Return a non-blocking 14-day freshness annotation for a priced row."""
-    raw_date = item.get("price_date")
-    if not item.get("price_cny") or not raw_date:
+    raw_date = _query_price_date(item)
+    if not _query_price(item) or not raw_date:
         return {}
     try:
         quoted_on = date.fromisoformat(str(raw_date))
@@ -1140,7 +1225,7 @@ def _matches_common_candidate(item, spec):
         return False
     if spec.has_price_only and not _has_usable_price(item) and not (spec.model or spec.item_id):
         return False
-    if spec.budget and item.get("price_cny") and _parse_num(item.get("price_cny")) > spec.budget:
+    if spec.budget and _query_price(item) and _query_price(item) > spec.budget:
         return False
     return True
 
@@ -1164,9 +1249,9 @@ def _query_cases(spec):
             continue
         if not _matches_optional_bool(item, "has_dust_filter", spec.dust_filter):
             continue
-        results.append(_summarize_case(item))
+        results.append(item)
     _sort_results(results, spec.sort, "case")
-    return dedupe_results("case", results)[:spec.limit]
+    return [_summarize_case(item) for item in dedupe_results("case", results)[:spec.limit]]
 
 
 def _query_displays(spec):
@@ -1459,7 +1544,7 @@ def _storage_tier(item):
         score += 2
     elif capacity_gb >= 2000:
         score += 1
-    if item.get("price_cny") and item.get("price_date"):
+    if _query_price(item) and _query_price_date(item):
         score += 1
     return score
 
@@ -1495,14 +1580,14 @@ def _memory_tier(item):
         score += 4
     elif module_count > 2:
         score -= 3
-    price = _parse_int(item.get("price_cny"))
+    price = _parse_int(_query_price(item)) if _QUERY_CURRENCY == "CNY" else 0
     generation = str(item.get("generation", "")).upper()
     capacity_gb = _parse_int(item.get("capacity_gb"))
     if generation == "DDR5" and freq >= 5600 and capacity_gb >= 32 and 0 < price < 1300:
         score -= 8
     if generation == "DDR5" and freq >= 5600 and capacity_gb >= 64 and 0 < price < 2500:
         score -= 8
-    if item.get("price_cny") and item.get("price_date"):
+    if _query_price(item) and _query_price_date(item):
         score += 1
     return score
 
@@ -1534,7 +1619,7 @@ def _cooler_tier(item):
         score += 2
     if any(token in text for token in ("LCD", "数显", "屏")):
         score += 2
-    if item.get("price_cny") and item.get("price_date"):
+    if _query_price(item) and _query_price_date(item):
         score += 1
     return score
 
@@ -1572,31 +1657,32 @@ def _psu_tier(item):
         score += 2
     if any(token in text for token in ("白牌", "WHITE牌".upper())):
         score -= 4
-    if item.get("price_cny") and item.get("price_date"):
+    if _query_price(item) and _query_price_date(item):
         score += 1
     return score
 
 
 def _tier_sort_key(category, item):
     """Category-aware tier sort used by the progressive query helper."""
-    price = _parse_num(item.get("price_cny"))
+    price = _query_price(item)
+    price_key = (price <= 0, price, item.get("id", ""))
     if category == "cpu":
-        return (-_cpu_tier(item), price)
+        return (-_cpu_tier(item), *price_key)
     if category == "gpu":
-        return (-_gpu_tier(item), price)
+        return (-_gpu_tier(item), *price_key)
     if category == "mb":
-        return (-_motherboard_tier(item), price)
+        return (-_motherboard_tier(item), *price_key)
     if category == "storage":
-        return (-_storage_tier(item), price)
+        return (-_storage_tier(item), *price_key)
     if category == "memory":
-        return (-_memory_tier(item), price)
+        return (-_memory_tier(item), *price_key)
     if category == "cooler":
-        return (-_cooler_tier(item), price)
+        return (-_cooler_tier(item), *price_key)
     if category == "psu":
-        return (-_psu_tier(item), price)
+        return (-_psu_tier(item), *price_key)
     if category == "fan":
-        return (-_fan_tier(item), price)
-    return (0, price)
+        return (-_fan_tier(item), *price_key)
+    return (0, *price_key)
 
 
 def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
@@ -1644,13 +1730,17 @@ def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
 def _summarize_case(case):
     """Extract summary fields from a case record."""
     fan_mounts = case.get("fan_mounts")
+    price_view = _selected_price_view(case)
     return {
         "id": case.get("id", ""),
         "brand": case.get("brand", ""),
         "model": case.get("model", ""),
-        "price_cny": case.get("price_cny"),
-        "price_status": case.get("price_status"),
-        "price_date": case.get("price_date"),
+        "price": price_view["price"] or None,
+        "price_currency": _QUERY_CURRENCY,
+        "price_cny": (price_view["price"] or None) if _QUERY_CURRENCY == "CNY" else None,
+        "base_price_cny": case.get("base_price_cny"),
+        "price_status": price_view["price_status"],
+        "price_date": price_view["price_date"],
         **_price_freshness(case),
         "colors": case.get("colors", case.get("color", "")),
         "motherboard_support": case.get("motherboard_support", []),
@@ -1672,6 +1762,7 @@ def _summarize_case(case):
 
 def summarize(item, category=None):
     """Extract only summary fields for progressive disclosure."""
+    item = _project_selected_price(item)
     fields = SUMMARY_FIELDS_BY_CATEGORY.get(category, SUMMARY_BASE_FIELDS)
     summary = {k: item.get(k) for k in fields if item.get(k) is not None}
     if category == "gpu" and infer_gpu_cooling(item) == "liquid":
@@ -1779,6 +1870,9 @@ def _build_parser():
     parser.add_argument("--category", choices=list(CATEGORIES.keys()) + ["all"],
                         default="all", help="配件品类")
     parser.add_argument("--budget", type=int, help="单品价格上限 (元)，不是整机预算")
+    parser.add_argument("--overlay", action="append", default=[], help="显式用户 overlay JSON；可重复，后传报价优先")
+    parser.add_argument("--currency", choices=["CNY", "USD", "EUR", "GBP", "JPY", "TWD"], default="CNY",
+                        help="价格筛选/预算/排序币种，不换算、不混算；默认 CNY")
     parser.add_argument("--model", help="型号关键词过滤，用于定位用户给出的现有配件")
     parser.add_argument("--id", dest="item_id", help="精确库内 ID 过滤")
     parser.add_argument("--platform", help="平台过滤 (intel/amd)")
@@ -1945,7 +2039,10 @@ def _run_single_query(args):
 
 def _grouped_output(grouped, detail):
     if detail:
-        return grouped
+        return {
+            category: items if category == "case" else [_project_selected_price(item) for item in items]
+            for category, items in grouped.items()
+        }
     return {
         category: (items if category == "case" else [summarize(item, category) for item in items])
         for category, items in grouped.items()
@@ -1953,14 +2050,18 @@ def _grouped_output(grouped, detail):
 
 
 def _single_output(results, category, detail):
-    if detail or category == "case":
+    if category == "case":
         return results
+    if detail:
+        return [_project_selected_price(item) for item in results]
     return [summarize(item, category) for item in results]
 
 
 def _print_result_row(category, item, *, detail=False):
+    selected_price = item.get("price") or _query_price(item)
+    currency = item.get("price_currency", _QUERY_CURRENCY)
     if category == "case" or not detail:
-        price = f"¥{item['price_cny']}" if item.get("price_cny") else "待补价"
+        price = f"{currency} {selected_price}" if selected_price else "待补价"
         color = item.get("colors", item.get("color", ""))
         showcase_tag = " [海景房]" if item.get("is_showcase") else ""
         extra = display_extra(category, item)
@@ -1971,7 +2072,7 @@ def _print_result_row(category, item, *, detail=False):
             f"{showcase_tag}{stale_tag}"
         )
         return
-    price = f"¥{item['price_cny']}" if item.get("price_cny") else "待补价"
+    price = f"{currency} {selected_price}" if selected_price else "待补价"
     stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
     print(f"  {item['id']:45s} {item.get('brand',''):12s} {item.get('model',''):40s} {price:>8s}{stale_tag}")
 
@@ -2005,16 +2106,22 @@ def main():
     parser = _build_parser()
     args = parser.parse_args()
     _validate_cli_args(parser, args)
+    try:
+        configure_overlays(args.overlay, args.currency)
+        _resolved_sections()
+        if args.item_id:
+            resolved = resolve_id(args.item_id, _RESOLVED_BY_ID, _ALIAS_INDEX)
+            args.item_id = resolved or args.item_id
+    except OverlayError as exc:
+        print(json.dumps({"ok": False, "errors": [exc.as_dict()]}, ensure_ascii=False), file=sys.stderr)
+        return 2
 
     if args.category == "all":
         output = _grouped_output(_run_grouped_query(args), args.detail)
         return 0 if _emit_grouped_output(output, args) else 2
 
     results = _run_single_query(args)
-    if not args.detail:
-        output = _single_output(results, args.category, args.detail)
-    else:
-        output = results
+    output = _single_output(results, args.category, args.detail)
     return 0 if _emit_single_output(output, args) else 2
 
 
