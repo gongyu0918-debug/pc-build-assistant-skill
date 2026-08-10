@@ -14,6 +14,7 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -23,14 +24,27 @@ from pathlib import Path
 import yaml
 
 from component_inference import (
-    enrich_item,
+    THERMAL_HIGH,
+    THERMAL_LOW,
+    THERMAL_MAINSTREAM,
+    THERMAL_STRONG,
+    USER_CONFIRMED_SPEC_FIELDS,
+    infer_cooler_thermal_profile,
     infer_cpu_integrated_graphics,
     infer_gpu_cooling,
     infer_gpu_vram,
     normalize_display_output,
     normalize_display_outputs,
 )
-from catalog_overlay import CATEGORY_SECTIONS, OverlayError, load_catalog_sections, resolve_catalog, resolve_id
+from catalog_overlay import (
+    CATEGORY_SECTIONS,
+    GPU_CATALOG_CONFLICT_FIELDS,
+    OverlayError,
+    enrich_resolved_item,
+    load_catalog_sections,
+    resolve_catalog,
+    resolve_id,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -79,6 +93,7 @@ class QuerySpec:
     memory_gen: str | None = None
     form_factor: str | None = None
     max_length: int | None = None
+    max_cooler_height: int | None = None
     gpu_cooling: str | None = "air"
     gpu_chip: str | None = None
     min_vram: int | None = None
@@ -114,7 +129,9 @@ DEDUPE_SPEC_FIELDS = {
         "chip", "vram_gb", "memory_type", "gpu_cooling", "color",
         "length_mm", "power_w", "power_connectors", "requires_16pin_psu",
     ),
-    "cooler": ("type", "radiator_mm", "height_mm", "color"),
+    "cooler": (
+        "type", "radiator_mm", "height_mm", "air_cooler_layout", "heatpipe_count", "color",
+    ),
     "psu": ("wattage_w", "form_factor", "length_mm", "native_16pin_gpu_power", "color"),
     "case": (
         "colors", "motherboard_support", "gpu_length_mm", "cpu_cooler_height_mm",
@@ -124,7 +141,7 @@ DEDUPE_SPEC_FIELDS = {
     "fan": ("size_mm", "pack_count", "blade_direction", "color", "fan_type"),
 }
 
-GPU_CONFLICT_FIELDS = ("chip", "vram_gb", "memory_type", "length_mm", "power_w", "power_connectors")
+GPU_CONFLICT_FIELDS = GPU_CATALOG_CONFLICT_FIELDS
 
 DISPLAY_NAMES = {
     "cpu": "CPU",
@@ -144,7 +161,7 @@ DISPLAY_NAMES = {
 SUMMARY_BASE_FIELDS = [
     "id", "brand", "model", "brand_en", "model_en", "normalization_status",
     "price", "price_currency", "price_cny", "base_price_cny", "price_status", "price_date",
-    "price_age_days", "price_stale",
+    "price_age_days", "price_stale", "spec_conflicts",
 ]
 SUMMARY_FIELDS_BY_CATEGORY = {
     "cpu": SUMMARY_BASE_FIELDS + [
@@ -166,7 +183,9 @@ SUMMARY_FIELDS_BY_CATEGORY = {
         "memory_bandwidth_gbps", "gpu_cooling", "gpu_radiator_required",
         "length_mm", "power_w", "power_connectors", "requires_16pin_psu", "color", "rgb",
     ],
-    "cooler": SUMMARY_BASE_FIELDS + ["type", "height_mm", "radiator_mm", "color", "rgb"],
+    "cooler": SUMMARY_BASE_FIELDS + [
+        "type", "height_mm", "radiator_mm", "air_cooler_layout", "heatpipe_count", "color", "rgb",
+    ],
     "psu": SUMMARY_BASE_FIELDS + [
         "wattage_w", "form_factor", "length_mm", "efficiency", "modular", "native_16pin_gpu_power", "color",
     ],
@@ -284,7 +303,7 @@ def _resolved_sections():
     sections = load_catalog_sections(DATA)
     sections, _RESOLVED_BY_ID, _ALIAS_INDEX = resolve_catalog(sections, _OVERLAY_PATHS, data_dir=DATA)
     for section, items in list(sections.items()):
-        sections[section] = [enrich_item(section, item) for item in items]
+        sections[section] = [enrich_resolved_item(section, item) for item in items]
     return sections
 
 
@@ -351,7 +370,41 @@ def normalize_resolution(value):
 
 def compact_text(value):
     """Normalize model/spec text for simple scope checks."""
-    return "".join(ch for ch in str(value or "").upper() if ch.isalnum())
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    return "".join(ch for ch in text.upper() if ch.isalnum())
+
+
+GPU_MODEL_QUERY_CHIP_PATTERN = re.compile(
+    r"(?:RTX\d{4}(?:DV2|TISUPER|SUPER|TI|V2|D)?|"
+    r"RX\d{4}(?:GRE|XT)?|ARC[AB]\d{3})"
+)
+GPU_BARE_NVIDIA_MODEL_QUERY_PATTERN = re.compile(
+    r"^(?:NVIDIA)?(?:GEFORCE)?(20|30|40|50)(\d{2})(TISUPER|SUPER|TI|D)?$"
+)
+
+
+def _gpu_chip_from_model_query(value):
+    """Extract a chip token so a model query cannot cross GPU SKU suffixes."""
+    compact = compact_text(value)
+    match = GPU_MODEL_QUERY_CHIP_PATTERN.search(compact)
+    if match:
+        return match.group(0)
+    bare = GPU_BARE_NVIDIA_MODEL_QUERY_PATTERN.fullmatch(compact)
+    if bare:
+        return "RTX" + "".join(part or "" for part in bare.groups())
+    return None
+
+
+def _gpu_chip_only_model_query(value):
+    """Return a chip only when the whole model query is a chip shorthand."""
+    compact = compact_text(value)
+    direct = GPU_MODEL_QUERY_CHIP_PATTERN.fullmatch(compact)
+    if direct:
+        return direct.group(0)
+    bare = GPU_BARE_NVIDIA_MODEL_QUERY_PATTERN.fullmatch(compact)
+    if bare:
+        return "RTX" + "".join(part or "" for part in bare.groups())
+    return None
 
 
 def is_fan_accessory(item):
@@ -384,6 +437,19 @@ def _model_identity_key(item):
 
 def filter_ambiguous_gpu_skus(results, catalog):
     """Hide exact model identities whose compatibility-sensitive facts conflict."""
+    marked_identities = {
+        _model_identity_key(item)
+        for item in catalog
+        if item.get("spec_conflicts") or item.get("_catalog_conflict_fields")
+    }
+    if marked_identities:
+        return [
+            item for item in results
+            if not (
+                _model_identity_key(item) in marked_identities
+                and (item.get("spec_conflicts") or item.get("_catalog_conflict_fields"))
+            )
+        ]
     grouped = {}
     for item in catalog:
         key = _model_identity_key(item)
@@ -420,10 +486,75 @@ def _matches_identity(item, model=None, item_id=None):
         return False
     if model:
         wanted = compact_text(model)
-        haystack = compact_text(" ".join(str(item.get(k, "")) for k in ("brand", "model", "brand_en", "model_en", "id")))
-        if wanted not in haystack:
+        is_gpu = str(item.get("id", "")).startswith(("gpu-", "user-gpu-"))
+        identity_fields = ["brand", "model", "brand_en", "model_en", "id"]
+        if is_gpu:
+            identity_fields.append("chip")
+        haystack = compact_text(" ".join(str(item.get(k, "")) for k in identity_fields))
+        chip_only = _gpu_chip_only_model_query(model) if is_gpu else None
+        if wanted not in haystack and chip_only is None:
             return False
+        if is_gpu:
+            requested_chip = _gpu_chip_from_model_query(model)
+            if requested_chip and not _matches_gpu_chip(item, requested_chip):
+                return False
     return True
+
+
+GPU_FAMILY_ONLY_MODEL_QUERY_PATTERN = re.compile(
+    r"^(?:(?:NVIDIA)?(?:GEFORCE)?RTX(?:20|30|40|50)?|"
+    r"(?:AMD)?(?:RADEON)?RX(?:5000|6000|7000|9000)?|"
+    r"(?:INTEL)?ARC(?:A|B)?)$"
+)
+GPU_GENERIC_MODEL_QUERY_PATTERN = re.compile(
+    r"^(?:"
+    r"NVIDIA|GEFORCE|RTX(?:20|30|40|50)?|AMD|RADEON|RX(?:5000|6000|7000|9000)?|"
+    r"INTEL|ARC(?:A|B)?|GPU|GRAPHICSCARD|显卡|独立显卡|"
+    r"OC|O|TI|SUPER|XT|GRE|V2|D|GAMING|PRO|DUAL|TRIO|AIR|WATER|LIQUID|"
+    r"WHITE|BLACK|PINK|SILVER|RGB|ARGB|白|黑|白色|黑色|粉色|银色|水冷|风冷|"
+    r"VRAM|显存|FAN|风扇|SINGLEFAN|DUALFAN|TRIPLEFAN|"
+    r"单风扇|双风扇|三风扇|四风扇|"
+    r"\d{1,3}|\d+(?:GB|G)|\d+FAN"
+    r")+$"
+)
+
+
+def _strip_catalog_gpu_brand_prefix(compact, catalog_brands):
+    """Remove an explicit brand prefix before classifying the remaining tokens."""
+    for brand in sorted(catalog_brands, key=len, reverse=True):
+        if compact.startswith(brand):
+            return compact[len(brand):]
+    return compact
+
+
+def _is_specific_gpu_model_query(value, catalog):
+    """Allow scope bypass for a concrete chip/model/series, not a broad family term."""
+    compact = compact_text(value)
+    catalog_brands = {
+        compact_text(item.get(field))
+        for item in catalog
+        for field in ("brand", "brand_en", "gpu_vendor")
+        if compact_text(item.get(field))
+    }
+    if not compact or compact in catalog_brands:
+        return False
+    without_brand = _strip_catalog_gpu_brand_prefix(compact, catalog_brands)
+    if not without_brand or GPU_FAMILY_ONLY_MODEL_QUERY_PATTERN.fullmatch(without_brand):
+        return False
+    if _gpu_chip_only_model_query(value):
+        return True
+    if _gpu_chip_from_model_query(value):
+        return any(_matches_identity(item, model=value) for item in catalog)
+    if GPU_GENERIC_MODEL_QUERY_PATTERN.fullmatch(without_brand):
+        return False
+    return any(
+        _matches_identity(item, model=value)
+        or (
+            without_brand != compact
+            and _matches_identity(item, model=without_brand)
+        )
+        for item in catalog
+    )
 
 
 def _parse_num(value, default=0):
@@ -705,6 +836,11 @@ def filter_low_price_outliers(category, results):
     groups = {}
     if category != "cpu":
         for item in results:
+            # Price floors guard imported channel quotes.  A quote explicitly
+            # supplied by the user is local evidence and must remain usable in
+            # that currency, without shifting the channel-price distribution.
+            if _is_selected_user_quote(item):
+                continue
             price = _query_price(item)
             key = _outlier_group_key(category, item)
             if key and price:
@@ -715,6 +851,9 @@ def filter_low_price_outliers(category, results):
     }
     kept = []
     for item in results:
+        if _is_selected_user_quote(item):
+            kept.append(item)
+            continue
         key = _outlier_group_key(category, item)
         price = float(_query_price(item))
         trusted_floor = _trusted_price_floor(category, item)
@@ -724,6 +863,12 @@ def filter_low_price_outliers(category, results):
             continue
         kept.append(item)
     return kept
+
+
+def _is_selected_user_quote(item):
+    """Return whether the active quote is explicit user evidence in this currency."""
+    currency = item.get("user_price_currency", item.get("price_currency"))
+    return item.get("price_status") == "user_quote" and currency == _QUERY_CURRENCY
 
 
 def keep_identity_matches_without_untrusted_prices(category, results):
@@ -788,7 +933,19 @@ def rgb_matches(item, requested):
     return True
 
 
-def in_current_scope(section, item, include_workstation_gpu=False):
+def _matches_max_cooler_height(item, max_height):
+    """Match a known total height for air coolers, never AIO pump/radiator thickness."""
+    if max_height is None:
+        return True
+    if str(item.get("type") or "").strip().lower() != "air":
+        return False
+    if _parse_int(item.get("radiator_mm")) > 0:
+        return False
+    height = _parse_num(item.get("height_mm"))
+    return bool(height and 0 < float(height) <= float(max_height))
+
+
+def in_current_scope(section, item, include_workstation_gpu=False, max_cooler_height=None):
     """Filter out legacy/irrelevant parts unless caller explicitly opts in."""
     model = compact_text(" ".join(str(item.get(k, "")) for k in ("brand", "model", "chip", "gpu_vendor")))
     socket = compact_text(item.get("socket"))
@@ -836,6 +993,8 @@ def in_current_scope(section, item, include_workstation_gpu=False):
         height = _parse_num(item.get("height_mm"))
         radiator = _parse_int(item.get("radiator_mm"))
         price_is_plausible = _QUERY_CURRENCY != "CNY" or _query_price(item) >= 50
+        if max_cooler_height is not None:
+            return _matches_max_cooler_height(item, max_cooler_height) and price_is_plausible
         return (bool(radiator) or float(height or 0) >= 120) and price_is_plausible
 
     if section == "psus":
@@ -983,6 +1142,7 @@ def _project_selected_price(item):
     for internal_field in (
         "active_price", "user_price", "user_price_currency", "user_price_date",
         "base_price_status", "base_price_date", "user_quote_note", "_cny_price_suppressed",
+        "_catalog_conflict_fields", USER_CONFIRMED_SPEC_FIELDS,
     ):
         projected.pop(internal_field, None)
     projected.update({
@@ -1004,6 +1164,8 @@ def _matches_max_length(section, item, max_length):
     if not max_length:
         return True
     if section == "gpus":
+        if "length_mm" in item.get("spec_conflicts", []):
+            return False
         length = _parse_num(item.get("length_mm"))
         return bool(length) and length <= _parse_num(max_length)
     if section == "cases":
@@ -1157,11 +1319,13 @@ def should_display_fan_mounts(value):
 
 
 def radiator_fan_slots(radiator_mm):
-    """Common AIO radiator fan occupancy: 240/280=2, 360/420=3."""
+    """Common AIO radiator fan occupancy by nominal radiator class."""
     try:
         size = int(radiator_mm or 0)
     except (TypeError, ValueError):
         return None
+    if size == 480:
+        return 4
     if size in (360, 420):
         return 3
     if size in (240, 280):
@@ -1187,10 +1351,16 @@ def _matches_gpu_chip(item, requested):
     wanted = compact_text(requested)
     if not wanted:
         return True
-    if compact_text(item.get("chip")) == wanted:
+    structured_chip = compact_text(item.get("chip"))
+    if structured_chip == wanted:
         return True
-    for field in ("chip", "model", "id"):
-        text = compact_text(item.get(field))
+    # Prefer the structured chip fact. Imported IDs may end in a random
+    # hexadecimal suffix whose digits can accidentally satisfy broad filters
+    # such as ``--gpu-chip 50``.
+    candidate_texts = (structured_chip,) if structured_chip else (
+        compact_text(item.get("model")),
+    )
+    for text in candidate_texts:
         start = 0
         while True:
             pos = text.find(wanted, start)
@@ -1292,7 +1462,13 @@ def _query_fans(spec):
             continue
         if is_fan_accessory(item) and spec.fan_type != "accessory":
             continue
-        if not spec.include_legacy and item.get("default_recommend") is False and not (spec.model or spec.item_id):
+        explicit_aio_frame = spec.fan_type == "aio_frame"
+        if (
+            not spec.include_legacy
+            and item.get("default_recommend") is False
+            and not explicit_aio_frame
+            and not (spec.model or spec.item_id)
+        ):
             continue
         if spec.color and not color_matches(item, spec.color):
             continue
@@ -1321,11 +1497,27 @@ def _query_core_components(spec):
         else [CATEGORIES[k] for k in CORE_CATEGORIES if k != "case"]
     results = []
     for sec in categories_to_search:
+        specific_gpu_model = sec == "gpus" and _is_specific_gpu_model_query(
+            spec.model, lib.get(sec, [])
+        )
         for item in lib.get(sec, []):
             if not _matches_common_candidate(item, spec):
                 continue
-            if not spec.include_legacy and not (spec.model or spec.item_id):
-                in_scope = in_current_scope(sec, item, include_workstation_gpu=spec.include_workstation_gpu)
+            explicit_gpu_chip = sec == "gpus" and bool(
+                _gpu_chip_only_model_query(spec.gpu_chip)
+            )
+            explicit_scope_bypass = bool(
+                spec.item_id
+                or explicit_gpu_chip
+                or (specific_gpu_model if sec == "gpus" else spec.model)
+            )
+            if not spec.include_legacy and not explicit_scope_bypass:
+                in_scope = in_current_scope(
+                    sec,
+                    item,
+                    include_workstation_gpu=spec.include_workstation_gpu,
+                    max_cooler_height=spec.max_cooler_height,
+                )
                 if not in_scope and not _matches_explicit_legacy_scope(sec, item, spec.socket):
                     continue
             if spec.platform:
@@ -1349,6 +1541,8 @@ def _query_core_components(spec):
             if spec.form_factor and not _matches_form_factor(sec, item, spec.form_factor):
                 continue
             if not _matches_max_length(sec, item, spec.max_length):
+                continue
+            if sec == "coolers" and not _matches_max_cooler_height(item, spec.max_cooler_height):
                 continue
             if sec == "gpus":
                 if spec.gpu_chip and not _matches_gpu_chip(item, spec.gpu_chip):
@@ -1388,7 +1582,8 @@ def _query_core_components(spec):
 def query(category=None, budget=None, platform=None, color=None,
           rgb=None, limit=DEFAULT_QUERY_LIMIT, has_price_only=True, showcase=None,
           include_legacy=False, sort="asc", socket=None, chipset=None,
-          memory_gen=None, form_factor=None, max_length=None, gpu_cooling="air",
+          memory_gen=None, form_factor=None, max_length=None, max_cooler_height=None,
+          gpu_cooling="air",
           gpu_chip=None, min_vram=None, min_capacity=None, include_workstation_gpu=False,
           resolution=None, min_refresh=None, air_flow=None, dust_filter=None,
           fan_size=None, blade_direction=None, linkable=None, screen=None,
@@ -1412,6 +1607,7 @@ def query(category=None, budget=None, platform=None, color=None,
         memory_gen=memory_gen,
         form_factor=form_factor,
         max_length=max_length,
+        max_cooler_height=max_cooler_height,
         gpu_cooling=None if gpu_cooling == "any" else gpu_cooling,
         gpu_chip=gpu_chip,
         min_vram=min_vram,
@@ -1607,25 +1803,19 @@ def _memory_tier(item):
 def _cooler_tier(item):
     """Score coolers by heat capacity and visible adoption signals."""
     score = candidate_signal_score(item, primary=COOLER_ADOPTION_SIGNALS)
+    profile = infer_cooler_thermal_profile(item)
     radiator = _parse_int(item.get("radiator_mm"))
-    if radiator >= 420:
-        score += 24
-    elif radiator >= 360:
+    if profile.rank == THERMAL_HIGH:
         score += 22
-    elif radiator >= 240:
+        if radiator >= 420:
+            score += 2
+    elif profile.rank == THERMAL_STRONG:
         score += 14
+    elif profile.rank == THERMAL_MAINSTREAM:
+        score += 5
+    elif profile.rank == THERMAL_LOW:
+        score -= 3
     text = compact_text(item_text(item))
-    if "双塔" in str(item.get("model", "")) or "DUALTOWER" in text:
-        score += 8
-    heat_pipe_match = re.search(r"(\d)\s*热管", str(item.get("model", "")))
-    if heat_pipe_match:
-        pipes = int(heat_pipe_match.group(1))
-        if pipes >= 7:
-            score += 7
-        elif pipes >= 6:
-            score += 5
-        elif pipes <= 4:
-            score -= 3
     height = float(_parse_num(item.get("height_mm")))
     if 145 <= height <= 165:
         score += 2
@@ -1909,6 +2099,11 @@ def _build_parser():
     )
     parser.add_argument("--max-length", type=int,
                         help="显卡长度上限；查询机箱时表示需要容纳的显卡长度 (mm)")
+    parser.add_argument(
+        "--max-cooler-height",
+        type=int,
+        help="CPU 风冷散热器总高度上限 (mm)；ITX/小机箱明确限高时使用",
+    )
     parser.add_argument("--gpu-cooling", choices=["air", "liquid", "any"], default="air",
                         help="显卡散热形态过滤；默认 air，用户明确要水冷显卡时使用 liquid，排查全量候选时使用 any")
     parser.add_argument("--gpu-chip", "--chip", dest="gpu_chip",
@@ -1938,7 +2133,7 @@ def _build_parser():
                         help="风扇正反页过滤: normal=正页/正叶, reverse=反页/反叶")
     parser.add_argument("--linkable", choices=["yes", "no"], help="风扇是否积木/串联/磁吸")
     parser.add_argument("--screen", choices=["yes", "no"], help="风扇是否带屏幕/数显")
-    parser.add_argument("--radiator-bundle", type=int, help="一体式/冷排风扇套装尺寸 (240/360/420)")
+    parser.add_argument("--radiator-bundle", type=int, help="一体式/冷排风扇套装尺寸 (240/360/420/480)")
     parser.add_argument("--fan-type", choices=["case_fan", "radiator_fan_pack", "aio_frame", "any"],
                         help="风扇类型过滤；aio_frame 为无风扇水冷框架，默认不推荐")
     parser.add_argument("--resolution", help="显示器分辨率过滤 (1080p/1K/1440p/2K/2160p/4K)")
@@ -1956,7 +2151,7 @@ def _build_parser():
 
 def _validate_cli_args(parser, args):
     for name in (
-        "budget", "max_length", "min_vram", "min_capacity", "max_capacity",
+        "budget", "max_length", "max_cooler_height", "min_vram", "min_capacity", "max_capacity",
         "fan_size", "radiator_bundle", "min_refresh", "limit",
     ):
         value = getattr(args, name)
@@ -1968,6 +2163,8 @@ def _validate_cli_args(parser, args):
         and args.min_capacity > args.max_capacity
     ):
         parser.error("--min-capacity cannot exceed --max-capacity")
+    if args.max_cooler_height is not None and args.category != "cooler":
+        parser.error("--max-cooler-height requires --category cooler")
 
 
 def _optional_bool(value):
@@ -2024,6 +2221,7 @@ def _run_single_query(args):
         memory_gen=args.memory_gen,
         form_factor=args.form_factor,
         max_length=args.max_length,
+        max_cooler_height=args.max_cooler_height if args.category == "cooler" else None,
         gpu_cooling=args.gpu_cooling,
         gpu_chip=args.gpu_chip,
         min_vram=args.min_vram,

@@ -16,10 +16,15 @@ import yaml
 from component_inference import (
     enrich_item,
     infer_cooler_type,
+    infer_cpu_conservative_power_w,
+    infer_explicit_cooler_height_mm,
+    infer_explicit_gpu_chip,
+    infer_explicit_memory_frequency_mt,
     infer_capacity_gb,
     infer_gpu_vram,
     infer_memory_capacity_gb,
     infer_memory_module_count,
+    infer_storage_form_factor,
     normalize_display_outputs,
 )
 
@@ -80,7 +85,9 @@ COVERAGE_FIELDS = {
     "motherboards": ["m2_slots", "sata_ports", "memory_freq_max", "display_outputs"],
     "memory": ["timing"],
     "storage": ["pcie_generation", "dram_cache", "dram_cache_mb"],
-    "coolers": ["type", "radiator_mm", "rgb"],
+    "coolers": [
+        "type", "radiator_mm", "rgb", "socket_support", "air_cooler_layout", "heatpipe_count",
+    ],
     "psus": ["wattage_w", "form_factor", "length_mm", "modular", "native_16pin_gpu_power"],
     "fans": [
         "size_mm", "color", "rgb", "blade_direction", "is_linkable",
@@ -109,6 +116,7 @@ VALID_GPU_MEMORY_TYPES = {
     "GDDR5", "GDDR5X", "GDDR6", "GDDR6X", "GDDR7", "GDDR7 ECC",
     "HBM2", "HBM2E", "HBM3", "HBM3E",
 }
+VALID_AIR_COOLER_LAYOUTS = {"low_profile", "down_draft", "single_tower", "dual_tower"}
 
 
 def _parse_int(value, default=0):
@@ -286,7 +294,19 @@ def _validate_component_item(section, item, required):
                 state.errors.append(f"{section}.{item_id}: impossible length_mm={item.get('length_mm')}")
         except (TypeError, ValueError):
             state.errors.append(f"{section}.{item_id}: invalid length_mm={item.get('length_mm')}")
+    if section == "cpus":
+        conservative_power_w = infer_cpu_conservative_power_w(item)
+        if conservative_power_w is not None and item.get("power_w") != conservative_power_w:
+            state.errors.append(
+                f"{section}.{item_id}: power_w={item.get('power_w')} is below controlled unlocked-SKU floor {conservative_power_w}"
+            )
     if section == "gpus":
+        inferred_chip = infer_explicit_gpu_chip(item)
+        current_chip = re.sub(r"[^A-Z0-9]", "", str(item.get("chip") or "").upper())
+        if inferred_chip and current_chip != re.sub(r"[^A-Z0-9]", "", inferred_chip.upper()):
+            state.errors.append(
+                f"{section}.{item_id}: chip={item.get('chip')} conflicts with explicit model token {inferred_chip}"
+            )
         memory_type = str(item.get("memory_type") or "").strip().upper()
         if memory_type and memory_type not in VALID_GPU_MEMORY_TYPES:
             state.errors.append(f"{section}.{item_id}: invalid memory_type={item.get('memory_type')}")
@@ -306,6 +326,7 @@ def _validate_component_item(section, item, required):
     if section == "memory":
         inferred_capacity = infer_memory_capacity_gb(item)
         inferred_modules = infer_memory_module_count(item)
+        inferred_frequency = infer_explicit_memory_frequency_mt(item)
         if inferred_capacity and item.get("capacity_gb") != inferred_capacity:
             state.errors.append(
                 f"{section}.{item_id}: capacity_gb={item.get('capacity_gb')} "
@@ -315,6 +336,11 @@ def _validate_component_item(section, item, required):
             state.errors.append(
                 f"{section}.{item_id}: module_count={item.get('module_count')} "
                 f"conflicts with model-inferred {inferred_modules}"
+            )
+        if inferred_frequency is not None and item.get("frequency_mt") not in (None, "", inferred_frequency):
+            state.errors.append(
+                f"{section}.{item_id}: frequency_mt={item.get('frequency_mt')} "
+                f"conflicts with explicit model token {inferred_frequency}"
             )
         timing = item.get("timing")
         if timing and not re.fullmatch(r"C(?:1[0-9]|[2-7][0-9]|80)", str(timing).upper()):
@@ -342,11 +368,45 @@ def _validate_component_item(section, item, required):
                 state.errors.append(f"{section}.{item_id}: invalid dram_cache_mb={dram_cache_mb}")
             if item.get("dram_cache") is not True:
                 state.errors.append(f"{section}.{item_id}: dram_cache_mb requires dram_cache=true")
+        inferred_form_factor = infer_storage_form_factor(item)
+        if inferred_form_factor and item.get("form_factor") != inferred_form_factor:
+            state.errors.append(
+                f"{section}.{item_id}: form_factor={item.get('form_factor')} "
+                f"conflicts with model/catalog-inferred {inferred_form_factor}"
+            )
+        if (
+            "SATA" in str(item.get("interface") or "").upper()
+            and "M.2" in str(item.get("form_factor") or "").upper()
+            and not str(inferred_form_factor or "").upper().startswith("M.2")
+        ):
+            state.errors.append(
+                f"{section}.{item_id}: SATA drive is marked M.2 without explicit M.2 model evidence"
+            )
     if section == "coolers":
         inferred_type = infer_cooler_type(item)
         raw_type = str(item.get("type") or "").lower()
         if inferred_type == "liquid" and raw_type not in {"liquid", "water", "水冷"}:
             state.errors.append(f"{section}.{item_id}: type={item.get('type')} conflicts with model-inferred liquid cooler")
+        explicit_height = infer_explicit_cooler_height_mm(item)
+        if explicit_height and item.get("height_mm") != explicit_height:
+            state.errors.append(
+                f"{section}.{item_id}: height_mm={item.get('height_mm')} conflicts with installed AXP90-X height {explicit_height}"
+            )
+        layout = item.get("air_cooler_layout")
+        if layout not in (None, "") and layout not in VALID_AIR_COOLER_LAYOUTS:
+            state.errors.append(f"{section}.{item_id}: invalid air_cooler_layout={layout}")
+        heatpipes = item.get("heatpipe_count")
+        if heatpipes not in (None, "") and (
+            isinstance(heatpipes, bool) or not isinstance(heatpipes, int) or not 1 <= heatpipes <= 16
+        ):
+            state.errors.append(f"{section}.{item_id}: invalid heatpipe_count={heatpipes}")
+        sockets = item.get("socket_support")
+        if sockets is not None and (
+            not isinstance(sockets, list)
+            or not sockets
+            or not all(isinstance(value, str) and value.strip() for value in sockets)
+        ):
+            state.errors.append(f"{section}.{item_id}: invalid socket_support={sockets}")
     if section == "motherboards" and item.get("display_outputs") is not None:
         outputs = item.get("display_outputs")
         if not normalize_display_outputs(outputs):
@@ -362,7 +422,7 @@ def _validate_component_item(section, item, required):
         model = str(item.get("model", ""))
         if item.get("fan_type") == "aio_frame":
             radiator_mm = item.get("radiator_fan_bundle_mm")
-            positive_aio_evidence = bool(AIO_FRAME_POSITIVE_RE.search(model)) or radiator_mm in {240, 280, 360, 420}
+            positive_aio_evidence = bool(AIO_FRAME_POSITIVE_RE.search(model)) or radiator_mm in {240, 280, 360, 420, 480}
             if (
                 not AIO_FRAME_FANLESS_RE.search(model)
                 or AIO_FRAME_FORBIDDEN_RE.search(model)

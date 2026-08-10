@@ -3,9 +3,7 @@ metadata:
   region: 中国大陆中文硬件市场
   price_date: '2026-08-10'
   price_rule: price_cny 为渠道报价估算，非电商实付价。price_date 超过 14 天建议搜索实时价格。
-  hardware_scope: Intel 12/13/14代Core + Core Ultra 200S; AMD Ryzen AM5; AM4 X3D + B550 DDR4 only for low-budget FPS exception;
-    RTX 50系 + RTX 3060Ti; RX 9000系; Arc B570/B580; RTX PRO 6000 Blackwell Workstation 96GB for ultra-high-budget local AI/model
-    workflows
+  hardware_scope: Intel 12/13/14代Core + Core Ultra 200S; AMD Ryzen AM5; AM4 X3D + B550 DDR4 only for low-budget FPS exception; RTX 50系 + RTX 3060Ti; RX 9000系; Arc B570/B580; RTX PRO 6000 Blackwell Workstation 96GB for ultra-high-budget local AI/model workflows
   source_note: 数据来源于公开电商报价聚合，脱敏处理
   fan_count: 890
 cpus:
@@ -457,7 +455,7 @@ cpus:
   cores_threads: 20C/28T
   series: i7
   boost_clock: 5.6GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei513400f
   brand: INTEL
   model: Intel Core i5 13400F
@@ -481,7 +479,7 @@ cpus:
   cores_threads: 14C/20T
   series: i5
   boost_clock: 5.3GHz
-  power_w: 65
+  power_w: 181
 - id: cpu-amd-amdryzen79700x-6a601105
   brand: AMD
   model: AMD Ryzen7 9700X
@@ -517,7 +515,7 @@ cpus:
   cores_threads: 24C/32T
   series: i9
   boost_clock: 6GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei712700kf
   brand: INTEL
   model: Intel Core i7 12700KF
@@ -529,7 +527,7 @@ cpus:
   cores_threads: 12C/20T
   series: i7
   boost_clock: 5GHz
-  power_w: 65
+  power_w: 190
 - id: cpu-intel-intelcoreultra9285k
   brand: INTEL
   model: Intel Core Ultra 9 285K
@@ -577,7 +575,7 @@ cpus:
   cores_threads: 14C/20T
   series: i5
   boost_clock: ''
-  power_w: 65
+  power_w: 181
 - id: cpu-amd-amdryzen79700x-7251b72d
   brand: AMD
   model: AMD Ryzen7 9700X
@@ -649,7 +647,7 @@ cpus:
   cores_threads: 24C/32T
   series: i9
   boost_clock: 6.2GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcoreultra7265kf
   brand: INTEL
   model: Intel Core Ultra 7 265KF
@@ -685,7 +683,7 @@ cpus:
   cores_threads: 14C/20T
   series: i5
   boost_clock: 5.1GHz
-  power_w: 65
+  power_w: 181
 - id: cpu-intel-intelcoreultrau5245k
   brand: intel
   model: Intel Core Ultra U5 245K
@@ -733,7 +731,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei512400f-7dbb7843
   brand: INTEL
   model: Intel Core i5 12400F
@@ -757,7 +755,7 @@ cpus:
   cores_threads: 24C/32T
   series: i9
   boost_clock: 6GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcoreultrau5230f
   brand: intel
   model: Intel Core Ultra U5 230F
@@ -865,7 +863,7 @@ cpus:
   cores_threads: 24C/32T
   series: i9
   boost_clock: 6GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei512400
   brand: INTEL
   model: Intel Core i5 12400
@@ -889,7 +887,7 @@ cpus:
   cores_threads: 10C/16T
   series: i5
   boost_clock: 4.9GHz
-  power_w: 65
+  power_w: 150
 - id: cpu-amd-amdryzen97900x3d
   brand: AMD
   model: AMD Ryzen9 7900X3D
@@ -949,7 +947,7 @@ cpus:
   cores_threads: 24C/32T
   series: i9
   boost_clock: 5.8GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-amd-amdryzen59600x-24fd6f05
   brand: AMD
   model: AMD Ryzen5 9600X
@@ -997,7 +995,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intecoreultra9285
   brand: INTEL
   model: Intel Core Ultra 9 285
@@ -1153,7 +1151,7 @@ cpus:
   cores_threads: 14C/20T
   series: i5
   boost_clock: 5.1GHz
-  power_w: 65
+  power_w: 181
 - id: cpu-amd-amdryzen97950x
   brand: AMD
   model: AMD Ryzen9 7950X
@@ -1177,7 +1175,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei314100f
   brand: INTEL
   model: Intel Core i3 14100F
@@ -1201,7 +1199,7 @@ cpus:
   cores_threads: 16C/24T
   series: i9
   boost_clock: 5.1GHz
-  power_w: 65
+  power_w: 241
 - id: cpu-intel-intelcorei913900f
   brand: INTEL
   model: Intel Core i9 13900F
@@ -1225,7 +1223,7 @@ cpus:
   cores_threads: 12C/20T
   series: i7
   boost_clock: 5GHz
-  power_w: 65
+  power_w: 190
 - id: cpu-intel-intelcorei712700
   brand: INTEL
   model: Intel Core i7 12700
@@ -1249,7 +1247,7 @@ cpus:
   cores_threads: 16C/24T
   series: i9
   boost_clock: 5.5GHz
-  power_w: 65
+  power_w: 241
 - id: cpu-amd-amd99950x3d21632208mb56ghzcpu
   brand: AMD
   model: AMD锐龙9 9950X3D2双缓存版处理器16核32线程208MB缓存至高5.6GHz盒装CPU生产力 千帧电竞打瓦/三角洲
@@ -1285,7 +1283,7 @@ cpus:
   cores_threads: 14C/20T
   series: i5
   boost_clock: ''
-  power_w: 65
+  power_w: 181
 - id: cpu-intel-intelcorei514490f-659766e7
   brand: INTEL
   model: Intel Core i5 14490F
@@ -1321,7 +1319,7 @@ cpus:
   cores_threads: 14C/20T
   series: i5
   boost_clock: 5.1GHz
-  power_w: 65
+  power_w: 181
 - id: cpu-amd-amdryzen97950x3d-bf4190f5
   brand: AMD
   model: AMD Ryzen9 7950X3D
@@ -1369,7 +1367,7 @@ cpus:
   cores_threads: 24C/32T
   series: i9
   boost_clock: 5.8GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700kf-3da79d61
   brand: INTEL
   model: Intel Core i7 13700KF
@@ -1381,7 +1379,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei513490f-e72ecbd6
   brand: INTEL
   model: Intel Core i5 13490F
@@ -1477,7 +1475,7 @@ cpus:
   cores_threads: 10C/16T
   series: i5
   boost_clock: 4.9GHz
-  power_w: 65
+  power_w: 150
 - id: cpu-intel-intelultra5250kplus1818cpu
   brand: INTEL
   model: 英特尔（Intel）酷睿 Ultra 5 处理器 250K Plus 台式机 18核18线程 盒装CPU 畅玩三角洲行动/无畏契约
@@ -1609,7 +1607,7 @@ cpus:
   cores_threads: 16C/24T
   series: i9
   boost_clock: 5.1GHz
-  power_w: 65
+  power_w: 241
 - id: cpu-intel-intelcorei514600k-ecd3938a
   brand: INTEL
   model: Intel Core i5 14600K
@@ -1621,7 +1619,7 @@ cpus:
   cores_threads: 14C/20T
   series: i5
   boost_clock: 4.3GHz
-  power_w: 65
+  power_w: 181
 - id: cpu-intel-intelcelerong6900
   brand: intel
   model: Intel Celeron G6900
@@ -1837,7 +1835,7 @@ cpus:
   cores_threads: 16C/24T
   series: i9
   boost_clock: 5.5GHz
-  power_w: 65
+  power_w: 241
 - id: cpu-intel-intelcorei912900k-487ebe92
   brand: INTEL
   model: Intel Core i9 12900K
@@ -1849,7 +1847,7 @@ cpus:
   cores_threads: 16C/24T
   series: i9
   boost_clock: 5.1GHz
-  power_w: 65
+  power_w: 241
 - id: cpu-intel-intelcorei913900kf-a066c527
   brand: INTEL
   model: intel Core i9 13900KF
@@ -1861,7 +1859,7 @@ cpus:
   cores_threads: 24C/32T
   series: i9
   boost_clock: 5.8GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcoreultrau5225-b776ec3e
   brand: INTEL
   model: Intel Core Ultra U5 225
@@ -2413,7 +2411,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-a1cfe4ec
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2425,7 +2423,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-32aaee46
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2437,7 +2435,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-34707a67
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2449,7 +2447,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-8ce6d635
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2461,7 +2459,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-8c2e7305
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2473,7 +2471,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-4b99b4ed
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2485,7 +2483,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-4634fac3
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2497,7 +2495,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-baa775be
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2509,7 +2507,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei713700k-fbd4ab57
   brand: INTEL
   model: Intel Core i7 13700K
@@ -2521,7 +2519,7 @@ cpus:
   cores_threads: 16C/24T
   series: i7
   boost_clock: 5.4GHz
-  power_w: 65
+  power_w: 253
 - id: cpu-intel-intelcorei712700kf-39befa41
   brand: INTEL
   model: Intel Core i7 12700KF
@@ -2533,7 +2531,7 @@ cpus:
   cores_threads: 12C/20T
   series: i7
   boost_clock: 5GHz
-  power_w: 65
+  power_w: 190
 - id: cpu-intel-intelcorei712700-65c60e84
   brand: INTEL
   model: Intel Core i7 12700
@@ -14675,7 +14673,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -15039,7 +15037,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -16574,7 +16572,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: white
   rgb: false
@@ -17173,7 +17171,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -18109,7 +18107,7 @@ memory:
   generation: DDR4
   capacity_gb: 4
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -18539,7 +18537,7 @@ memory:
   generation: DDR5
   capacity_gb: 64
   module_count: 2
-  frequency_mt: 6400
+  frequency_mt: 6000
   timing: C40
   color: white
   rgb: true
@@ -18812,7 +18810,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -19242,7 +19240,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -19842,7 +19840,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: white
   rgb: false
@@ -20739,7 +20737,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: C19
   color: black
   rgb: false
@@ -21064,7 +21062,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -21676,7 +21674,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -22274,7 +22272,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: C19
   color: black
   rgb: false
@@ -22965,7 +22963,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -23173,7 +23171,7 @@ memory:
   generation: DDR5
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 0
+  frequency_mt: 4800
   timing: ''
   color: black
   rgb: false
@@ -23420,7 +23418,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -23876,7 +23874,7 @@ memory:
   generation: DDR4
   capacity_gb: 32
   module_count: 2
-  frequency_mt: 4400
+  frequency_mt: 4266
   timing: ''
   color: black
   rgb: false
@@ -24448,7 +24446,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: C19
   color: black
   rgb: false
@@ -25007,7 +25005,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: C19
   color: white
   rgb: false
@@ -25761,7 +25759,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -26633,7 +26631,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: C19
   color: black
   rgb: false
@@ -26646,7 +26644,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: C19
   color: white
   rgb: false
@@ -26659,7 +26657,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -26932,7 +26930,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 2400
+  frequency_mt: 2666
   timing: ''
   color: black
   rgb: false
@@ -27141,7 +27139,7 @@ memory:
   generation: DDR5
   capacity_gb: 32
   module_count: 2
-  frequency_mt: 0
+  frequency_mt: 6200
   timing: C26
   color: white
   rgb: true
@@ -27206,7 +27204,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 0
+  frequency_mt: 2666
   timing: C19
   color: black
   rgb: false
@@ -27219,7 +27217,7 @@ memory:
   generation: DDR4
   capacity_gb: 16
   module_count: 1
-  frequency_mt: 0
+  frequency_mt: 2666
   timing: C19
   color: white
   rgb: false
@@ -27245,7 +27243,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 0
+  frequency_mt: 2666
   timing: C19
   color: white
   rgb: false
@@ -27258,7 +27256,7 @@ memory:
   generation: DDR4
   capacity_gb: 8
   module_count: 1
-  frequency_mt: 0
+  frequency_mt: 2666
   timing: C19
   color: black
   rgb: false
@@ -29531,7 +29529,7 @@ storage:
   price_date: '2026-08-10'
   model_code: WD20EZBX
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -29573,7 +29571,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ZTSS0EH07D41MC
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -29913,7 +29911,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ST4000DM004
   capacity_tb: 4.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -30056,7 +30054,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ZTSS0EH09D41MC
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -30545,7 +30543,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ST1000DM014
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -30597,7 +30595,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CF500 1TB
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -30623,7 +30621,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ST8000DM004
   capacity_tb: 8.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -30729,7 +30727,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SA400S37/960GBKCN或SA400S37/960
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -30755,7 +30753,7 @@ storage:
   price_date: '2026-08-10'
   model_code: WD20EARZ
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -30807,7 +30805,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N530S
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31034,7 +31032,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MZ-77E1T0B
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31047,7 +31045,7 @@ storage:
   price_date: '2026-08-10'
   model_code: WD10EARZ
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -31114,7 +31112,7 @@ storage:
   price_date: '2026-08-10'
   model_code: TC10-480G
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31153,7 +31151,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MZ-77E4T0B
   capacity_tb: 4.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31166,7 +31164,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MD08ADA400E
   capacity_tb: 4.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -31179,7 +31177,7 @@ storage:
   price_date: '2026-08-10'
   model_code: Asgard HEL 1TS3-S7
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -31259,7 +31257,7 @@ storage:
   price_date: '2026-08-10'
   model_code: TC10-960G
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31326,7 +31324,7 @@ storage:
   price_date: '2026-08-10'
   model_code: WD60EZAX
   capacity_tb: 0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -31419,7 +31417,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GW560
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31536,7 +31534,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MZ-77E500B
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31549,7 +31547,7 @@ storage:
   price_date: '2026-08-10'
   model_code: WD30EZAX
   capacity_tb: 0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -31588,7 +31586,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CF500 512GB
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -31705,7 +31703,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S103PRO
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31718,7 +31716,7 @@ storage:
   price_date: '2026-08-10'
   model_code: LNS100-1TRB
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31746,7 +31744,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SKC600/1024G或SKC600/1024GBKCN
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -31956,7 +31954,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ST2000DM008
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -32008,7 +32006,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MZ-77E2T0B
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -32047,7 +32045,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MZ-77E250B
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -32177,7 +32175,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S500
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -32190,7 +32188,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SKC600/512G或SKC600/512GBKCN
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -32346,7 +32344,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SKC600/2048G或SKC600/2048GBKCN
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -32385,7 +32383,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ZTSS0EH05D41MC
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -32398,7 +32396,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CF300 120GB
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -32502,7 +32500,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL500 512GB
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -32593,7 +32591,7 @@ storage:
   price_date: '2026-08-10'
   model_code: KP320 512G
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -32606,7 +32604,7 @@ storage:
   price_date: '2026-08-10'
   model_code: LNS100-512RBCN
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -32762,7 +32760,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL500 1TB
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -32840,7 +32838,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N550S
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -32959,7 +32957,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CF500 240GB
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -32972,7 +32970,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GLOWAY STK512GS3-S7
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -32998,7 +32996,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SA400S37/240G或SA400S37/240GBK或
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -33115,7 +33113,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S103PRO
   capacity_tb: 4.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -33141,7 +33139,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GW560
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -33154,7 +33152,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GW560
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -33206,7 +33204,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GLOWAY STK128GS3-S7
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -33258,7 +33256,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GW560
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -33364,7 +33362,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GLOWAY STK1TBS3-S7
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -33442,7 +33440,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SA400S37/480G或SA400S37/480GBK或
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -33455,7 +33453,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ST2000DM005
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -33585,7 +33583,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SP580 960GB
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -33637,7 +33635,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N550S
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -33663,7 +33661,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 345M7AA#UUF
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -33689,7 +33687,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S500
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -33819,7 +33817,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SDSSDA-480G
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -33897,7 +33895,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CT1000BX500SSD1
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34014,7 +34012,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GLOWAY STK2TS3-S7
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 其他
@@ -34040,7 +34038,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MS128GBX7
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34066,7 +34064,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SP580 480G
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34079,7 +34077,7 @@ storage:
   price_date: '2026-08-10'
   model_code: KP320 256G
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34105,7 +34103,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SDSSDA-1T00-Z27
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34183,7 +34181,7 @@ storage:
   price_date: '2026-08-10'
   model_code: LNS100-2TRB
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34196,7 +34194,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S500
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34209,7 +34207,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GW520
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34263,7 +34261,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ST6000DM003
   capacity_tb: 0
-  form_factor: M.2 2280
+  form_factor: 3.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: 台式机硬盘
@@ -34315,7 +34313,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 拯救者火力强化 SSD升级
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34523,7 +34521,7 @@ storage:
   price_date: '2026-08-10'
   model_code: A3 250G
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: QLC
@@ -34536,7 +34534,7 @@ storage:
   price_date: '2026-08-10'
   model_code: A3 1T
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: QLC
@@ -34549,7 +34547,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CF500 480GB
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34588,7 +34586,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SDSSDA-240G
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34614,7 +34612,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N530S
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34627,7 +34625,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N550S
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34666,7 +34664,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 345M9AA#UUF
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34731,7 +34729,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S500
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34757,7 +34755,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL500 1TB 战戟
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34770,7 +34768,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL500 240GB
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34796,7 +34794,7 @@ storage:
   price_date: '2026-08-10'
   model_code: JZ-2.5SSD480GB-3
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SATA接口
@@ -34809,7 +34807,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S100PRO
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -34822,7 +34820,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL700 SATA3
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -34952,7 +34950,7 @@ storage:
   price_date: '2026-08-10'
   model_code: A3 500G
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: QLC
@@ -34991,7 +34989,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MS1TBX5
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35004,7 +35002,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MS512GBX5
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35017,7 +35015,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MS128GBX6
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35030,7 +35028,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MS512GBX7
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35043,7 +35041,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SU650
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35056,7 +35054,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GLOWAY STK4TS3-S7
   capacity_tb: 4.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35069,7 +35067,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SDSSDA-2T00-Z26
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35095,7 +35093,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N550S
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35173,7 +35171,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 6MC15AA#UUF
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35186,7 +35184,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 2DP99AA#UUF
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35238,7 +35236,7 @@ storage:
   price_date: '2026-08-10'
   model_code: LNS100-128RBCN
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35251,7 +35249,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GW560
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35264,7 +35262,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SKC600/256G或SKC600/256GBKCN
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35277,7 +35275,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL500 256GB
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35290,7 +35288,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 250GB
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35316,7 +35314,7 @@ storage:
   price_date: '2026-08-10'
   model_code: ZA1024CV10002
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35394,7 +35392,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N520S
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35407,7 +35405,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CT4000BX500SSD1
   capacity_tb: 4.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35433,7 +35431,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL700
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35446,7 +35444,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL700
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: ''
@@ -35459,7 +35457,7 @@ storage:
   price_date: '2026-08-10'
   model_code: S205
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: ''
@@ -35485,7 +35483,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL500 500GB
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35537,7 +35535,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SD256GBA810
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35693,7 +35691,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MS256GBX5
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35706,7 +35704,7 @@ storage:
   price_date: '2026-08-10'
   model_code: MS256GBX7
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35719,7 +35717,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SU650
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 3
   storage_type: TLC
@@ -35732,7 +35730,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SP580 240GB
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35745,7 +35743,7 @@ storage:
   price_date: '2026-08-10'
   model_code: GLOWAY STK256GS3-S7
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35823,7 +35821,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N530S
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35836,7 +35834,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N550S
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35849,7 +35847,7 @@ storage:
   price_date: '2026-08-10'
   model_code: N530S
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -35862,7 +35860,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CT480BX500SSD1/CT500BX500SSD1
   capacity_tb: 0.48828125
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35875,7 +35873,7 @@ storage:
   price_date: '2026-08-10'
   model_code: CT240BX500SSD1
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35914,7 +35912,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 345N1AA#UUF
   capacity_tb: 2.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35927,7 +35925,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 345N0AA#UUF
   capacity_tb: 1.0
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35940,7 +35938,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 345M8AA#UUF
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -35953,7 +35951,7 @@ storage:
   price_date: '2026-08-10'
   model_code: 2DP98AA#UUF
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -36031,7 +36029,7 @@ storage:
   price_date: '2026-08-10'
   model_code: LNS100-256RBCN
   capacity_tb: 0.244140625
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: TLC
@@ -36044,7 +36042,7 @@ storage:
   price_date: '2026-08-10'
   model_code: SL300 128GB
   capacity_tb: 0.1171875
-  form_factor: M.2 2280
+  form_factor: 2.5 SATA
   interface: SATA
   pcie_generation: 0
   storage_type: SSD
@@ -39373,7 +39371,7 @@ gpus:
   price_cny: 2399
   price_status: channel_quote
   price_date: '2026-08-10'
-  chip: RTX 3060Ti
+  chip: RTX 3060
   gpu_vendor: NVIDIA
   vram_gb: 12
   memory_type: ''
@@ -48822,6 +48820,16 @@ coolers:
   price_cny: 149
   price_status: channel_quote
   price_date: '2026-06-30'
+  air_cooler_layout: dual_tower
+  heatpipe_count: 6
+  socket_support:
+  - LGA115X
+  - LGA1200
+  - LGA1700
+  - LGA1851
+  - AM4
+  - AM5
+  spec_source: 网络公开规格资料
 - id: cooler-a6argb
   brand: 红戟
   model: 红戟风冷/A6 黑化版（单塔六热管 ARGB 双平台）
@@ -48879,8 +48887,8 @@ coolers:
   price_cny: 399
   price_status: channel_quote
   price_date: '2026-08-01'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-aquaelite360argb
@@ -48900,8 +48908,8 @@ coolers:
   price_cny: 698
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 87.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-sja080360argb
@@ -49151,8 +49159,8 @@ coolers:
   price_cny: 698
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 87.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-cl125whitevkargb
@@ -49234,8 +49242,8 @@ coolers:
   price_cny: 1129
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 29.2
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-36065se-ff37aa3d
@@ -49276,8 +49284,8 @@ coolers:
   price_cny: 330
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-th360
@@ -49569,8 +49577,8 @@ coolers:
   price_cny: 330
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-v5
@@ -49818,8 +49826,8 @@ coolers:
   price_cny: 318
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-gt360argbdisplaybk
@@ -49859,8 +49867,8 @@ coolers:
   price_cny: 273
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-ax120rse-5056747d
@@ -49993,8 +50001,8 @@ coolers:
   price_cny: 1229
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 29.2
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-gx360rargb
@@ -50430,8 +50438,8 @@ coolers:
   price_cny: 2799
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-prime360argblcd
@@ -50649,8 +50657,8 @@ coolers:
   price_cny: 1449
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 89.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: true
 - id: cooler-cr1000v2proargb
@@ -50751,8 +50759,8 @@ coolers:
   price_cny: 318
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-a090240amd
@@ -50761,8 +50769,8 @@ coolers:
   price_cny: 368
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-rogstrix360cpu
@@ -51013,8 +51021,8 @@ coolers:
   price_cny: 499
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-cr1000v2proargb-95fb9c37
@@ -51043,8 +51051,8 @@ coolers:
   price_cny: 519
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 77.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-rt500bk5cpu
@@ -51242,8 +51250,8 @@ coolers:
   price_cny: 1229
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 29.2
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-c420wargb
@@ -51493,8 +51501,8 @@ coolers:
   price_cny: 1439
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 89.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: true
 - id: cooler-hk3604pro
@@ -51503,8 +51511,8 @@ coolers:
   price_cny: 185
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-p60t6v2-cfd37e77
@@ -51700,8 +51708,8 @@ coolers:
   price_cny: 368
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-r360cpu-6eb5e5b4
@@ -51794,8 +51802,8 @@ coolers:
   price_cny: 199
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 120
   color: black
   rgb: true
 - id: cooler-ea5360sev2argb
@@ -52089,8 +52097,8 @@ coolers:
   price_cny: 499
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-tg240argb
@@ -52183,8 +52191,8 @@ coolers:
   price_cny: 2099
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 420
   color: black
   rgb: false
 - id: cooler-tg360argb-21777efe
@@ -52266,8 +52274,8 @@ coolers:
   price_cny: 318
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-360argb-13f720d4
@@ -52400,8 +52408,8 @@ coolers:
   price_cny: 179
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 120
   color: black
   rgb: true
 - id: cooler-ba120
@@ -52648,8 +52656,8 @@ coolers:
   price_cny: 439
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-ak120miniv3argb
@@ -53163,8 +53171,8 @@ coolers:
   price_cny: 274
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-axp120x67
@@ -53330,8 +53338,8 @@ coolers:
   price_cny: 408
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-fs140
@@ -53539,8 +53547,8 @@ coolers:
   price_cny: 155
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-ps120digitalsnow
@@ -53644,8 +53652,8 @@ coolers:
   price_cny: 354
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-cr1400-8ba912ea
@@ -53726,8 +53734,8 @@ coolers:
   price_cny: 2599
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 123.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-se240argb667
@@ -53861,8 +53869,8 @@ coolers:
   price_cny: 159
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 52.0
+  type: liquid
+  radiator_mm: 120
   color: white
   rgb: true
 - id: cooler-gl36w360amgargb
@@ -54060,8 +54068,8 @@ coolers:
   price_cny: 359
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-axp90x47
@@ -54071,9 +54079,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 32.0
+  height_mm: 47
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-ax90seargb
   brand: 利民
   model: 利民 AX90 SE 四热管 ARGB 黑
@@ -54365,8 +54374,8 @@ coolers:
   price_cny: 368
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-360cpu-484eb124
@@ -54459,8 +54468,8 @@ coolers:
   price_cny: 1039
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 38.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: true
 - id: cooler-fm240argb-36a9c71b
@@ -54566,8 +54575,8 @@ coolers:
   price_cny: 318
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-frozenvision360argbwhitev2
@@ -54587,8 +54596,8 @@ coolers:
   price_cny: 699
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 63.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-cpu240
@@ -54630,8 +54639,8 @@ coolers:
   price_cny: 799
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: true
 - id: cooler-jplayer-jplayer400
@@ -54816,8 +54825,8 @@ coolers:
   price_cny: 368
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-ax120rdigitalblack
@@ -54911,9 +54920,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 38.0
+  height_mm: 53
   color: white
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-ss135-2d5c8089
   brand: 利民
   model: 利民 SS135 六热管双塔 白
@@ -54941,8 +54951,8 @@ coolers:
   price_cny: 146
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-fm6006cpu
@@ -55220,9 +55230,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 38.0
+  height_mm: 53
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-ss110
   brand: 利民
   model: 利民 SS110 五热管双塔 黑
@@ -55430,8 +55441,8 @@ coolers:
   price_cny: 389
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-360argb-488cf726
@@ -55586,9 +55597,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 21.0
+  height_mm: 36
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-360cpu667argbintelamd
   brand: 钛钽
   model: 钛钽 幻世 360黑色 CPU一体式水冷散热器 6.67英寸曲面屏幕 加厚冷排风扇ARGB 支持intel/AMD
@@ -55658,8 +55670,8 @@ coolers:
   price_cny: 106
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 120
   color: black
   rgb: true
 - id: cooler-dp0124040ips
@@ -55742,8 +55754,8 @@ coolers:
   price_cny: 529
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 63.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-b360cpu
@@ -55994,8 +56006,8 @@ coolers:
   price_cny: 309
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-fe360argb-65ae4d2d
@@ -56027,9 +56039,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 38.0
+  height_mm: 53
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-as120evo
   brand: 利民
   model: 利民 AS120 EVO 单塔四热管 无光 黑
@@ -56140,8 +56153,8 @@ coolers:
   price_cny: 115
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 120
   color: black
   rgb: false
 - id: cooler-hk120argb-045a6631
@@ -56150,8 +56163,8 @@ coolers:
   price_cny: 115
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 120
   color: white
   rgb: true
 - id: cooler-hk3606pro
@@ -56160,8 +56173,8 @@ coolers:
   price_cny: 200
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-p606-84e3b822
@@ -56263,10 +56276,11 @@ coolers:
   price_cny: 679
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 480
   color: black
   rgb: true
+  spec_source: 网络公开规格资料
 - id: cooler-panorama240cpu65
   brand: 创氪星系
   model: 创氪星系 PANORAMA展域240 水冷cpu散热器 白 6.5英寸曲面屏
@@ -56422,9 +56436,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 32.0
+  height_mm: 47
   color: white
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-as120evoargb
   brand: 利民
   model: 利民 AS120 EVO ARGB 单塔四热管 黑
@@ -56527,8 +56542,8 @@ coolers:
   price_cny: 169
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-dp0124040ips-2eea2ca5
@@ -56770,9 +56785,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 38.0
+  height_mm: 53
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-axp90x36-fd29ef93
   brand: 利民
   model: 利民 AXP90-X36 下压风冷 四热管 黑
@@ -56780,9 +56796,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 21.0
+  height_mm: 36
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-ax120v2
   brand: 利民
   model: 利民 AX120 V2 单塔四热管 无光 黑
@@ -56850,8 +56867,8 @@ coolers:
   price_cny: 329
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 52.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-360argb-038693a4
@@ -56933,8 +56950,8 @@ coolers:
   price_cny: 125
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 120
   color: white
   rgb: false
 - id: cooler-hk240f1
@@ -56943,8 +56960,8 @@ coolers:
   price_cny: 185
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-hk360f1rs
@@ -56953,8 +56970,8 @@ coolers:
   price_cny: 224
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-hk240f1rs
@@ -56963,8 +56980,8 @@ coolers:
   price_cny: 185
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-kp360
@@ -56973,8 +56990,8 @@ coolers:
   price_cny: 295
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-dp0124040
@@ -57215,9 +57232,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 32.0
+  height_mm: 47
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-as120evoargb-b0db8d03
   brand: 利民
   model: 利民 AS120 EVO 四热管 ARGB 白
@@ -57265,8 +57283,8 @@ coolers:
   price_cny: 1299
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 65.0
+  type: liquid
+  radiator_mm: 420
   color: black
   rgb: false
 - id: cooler-b360lcdargb
@@ -57286,8 +57304,8 @@ coolers:
   price_cny: 399
   price_status: channel_quote
   price_date: '2026-08-01'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-x4004
@@ -57357,8 +57375,8 @@ coolers:
   price_cny: 139
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 52.0
+  type: liquid
+  radiator_mm: 120
   color: black
   rgb: false
 - id: cooler-i360
@@ -57367,8 +57385,8 @@ coolers:
   price_cny: 569
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 52.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-gt36035-445e9b0b
@@ -57429,8 +57447,8 @@ coolers:
   price_cny: 215
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 50.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-nhd15g2hbc8
@@ -57525,8 +57543,8 @@ coolers:
   price_cny: 205
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-hk2404pro-65bab636
@@ -57535,8 +57553,8 @@ coolers:
   price_cny: 149
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-dp0124040-27bd8e85
@@ -57651,8 +57669,8 @@ coolers:
   price_cny: 599
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: true
 - id: cooler-se207xt-f1280b43
@@ -57796,9 +57814,10 @@ coolers:
   price_status: channel_quote
   price_date: '2026-08-10'
   type: air
-  height_mm: 32.0
+  height_mm: 47
   color: black
   rgb: false
+  spec_source: 网络公开规格资料
 - id: cooler-ax120v2plus
   brand: 利民
   model: 利民 AX120 V2 PLUS 单塔四热管 无光 黑
@@ -57836,8 +57855,8 @@ coolers:
   price_cny: 1099
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 65.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-vc
@@ -57887,8 +57906,8 @@ coolers:
   price_cny: 639
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 92.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-a13360-b33691f8
@@ -57897,8 +57916,8 @@ coolers:
   price_cny: 349
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 52.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-rt720ptc
@@ -57927,8 +57946,8 @@ coolers:
   price_cny: 279
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-360-1a3c46f5
@@ -57937,8 +57956,8 @@ coolers:
   price_cny: 289
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 60.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-rz620protc
@@ -57957,8 +57976,8 @@ coolers:
   price_cny: 224
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 56.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-x360-7fdd2f60
@@ -57967,8 +57986,8 @@ coolers:
   price_cny: 234
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 50.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-120395
@@ -58049,8 +58068,8 @@ coolers:
   price_cny: 215
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 50.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-360proargb
@@ -58494,8 +58513,8 @@ coolers:
   price_cny: 195
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-360-70a2c7be
@@ -58504,8 +58523,8 @@ coolers:
   price_cny: 189
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-240-cc7d30fd
@@ -58514,8 +58533,8 @@ coolers:
   price_cny: 155
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-240-c3161a09
@@ -58524,8 +58543,8 @@ coolers:
   price_cny: 159
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-ak03360-6b97467e
@@ -58611,8 +58630,8 @@ coolers:
   price_cny: 205
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-hk360-c3ec3b26
@@ -58621,8 +58640,8 @@ coolers:
   price_cny: 195
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-hk240
@@ -58631,8 +58650,8 @@ coolers:
   price_cny: 169
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-hk240-f9aa161b
@@ -58641,8 +58660,8 @@ coolers:
   price_cny: 159
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-hk360argb-ced97294
@@ -58684,8 +58703,8 @@ coolers:
   price_cny: 199
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-hk240-2bb0d81e
@@ -58694,8 +58713,8 @@ coolers:
   price_cny: 165
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-hk240-da065d84
@@ -58704,8 +58723,8 @@ coolers:
   price_cny: 159
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-hk3606pro-7af1ecaf
@@ -58714,8 +58733,8 @@ coolers:
   price_cny: 199
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-hk2406pro-8f7ba42e
@@ -58724,8 +58743,8 @@ coolers:
   price_cny: 155
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-hk3604pro-4fd96e67
@@ -58734,8 +58753,8 @@ coolers:
   price_cny: 175
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-hk360f1
@@ -58744,8 +58763,8 @@ coolers:
   price_cny: 229
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-hk360f1-8758eb94
@@ -58754,8 +58773,8 @@ coolers:
   price_cny: 214
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-hk240f1-ce07319b
@@ -58764,8 +58783,8 @@ coolers:
   price_cny: 175
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-hk360f1rs-a1771973
@@ -58774,8 +58793,8 @@ coolers:
   price_cny: 214
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-hk240f1rs-b6fd44d9
@@ -58784,8 +58803,8 @@ coolers:
   price_cny: 175
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-hk360-2db19b37
@@ -58794,8 +58813,8 @@ coolers:
   price_cny: 155
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-hk360-06f04c2c
@@ -58804,8 +58823,8 @@ coolers:
   price_cny: 149
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-hk240-2ebe41f6
@@ -58814,8 +58833,8 @@ coolers:
   price_cny: 125
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-hk240-5b43f02f
@@ -58824,8 +58843,8 @@ coolers:
   price_cny: 119
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-yk360
@@ -58834,8 +58853,8 @@ coolers:
   price_cny: 199
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-yk360-3f05e392
@@ -58844,8 +58863,8 @@ coolers:
   price_cny: 199
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-yk240-4151de53
@@ -58854,8 +58873,8 @@ coolers:
   price_cny: 169
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-yk120
@@ -58864,8 +58883,8 @@ coolers:
   price_cny: 139
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 120
   color: white
   rgb: false
 - id: cooler-yk120-6e57eb60
@@ -58874,8 +58893,8 @@ coolers:
   price_cny: 139
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 0
+  type: liquid
+  radiator_mm: 120
   color: black
   rgb: false
 - id: cooler-kp360-c8f72567
@@ -58884,8 +58903,8 @@ coolers:
   price_cny: 303
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-kp360-38796c5f
@@ -58894,8 +58913,8 @@ coolers:
   price_cny: 303
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: black
   rgb: false
 - id: cooler-kp240
@@ -58904,8 +58923,8 @@ coolers:
   price_cny: 263
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-kp240-8818cedd
@@ -58914,8 +58933,8 @@ coolers:
   price_cny: 263
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-kp360-e46f7a9f
@@ -58924,8 +58943,8 @@ coolers:
   price_cny: 295
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 360
   color: white
   rgb: false
 - id: cooler-kp240-a90530ce
@@ -58934,8 +58953,8 @@ coolers:
   price_cny: 255
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 - id: cooler-kp240-2383a4f3
@@ -58944,8 +58963,8 @@ coolers:
   price_cny: 255
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 27.0
+  type: liquid
+  radiator_mm: 240
   color: black
   rgb: false
 - id: cooler-dp0136040-ebef3143
@@ -59102,8 +59121,8 @@ coolers:
   price_cny: 429
   price_status: channel_quote
   price_date: '2026-08-10'
-  type: air
-  height_mm: 65.0
+  type: liquid
+  radiator_mm: 240
   color: white
   rgb: false
 psus:

@@ -7,11 +7,21 @@ import copy
 import json
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 import yaml
+
+from component_inference import (
+    USER_CONFIRMED_SPEC_FIELDS,
+    enrich_item,
+    infer_storage_form_factor,
+    normalize_explicit_storage_form_factor,
+    storage_interface_form_factor_consistent,
+    storage_model_form_factor_consistent,
+)
 
 
 SUPPORTED_CURRENCIES = {"CNY", "USD", "EUR", "GBP", "JPY", "TWD"}
@@ -28,7 +38,9 @@ class CategoryContract:
 class FieldContract:
     kind: str
     minimum: float | None = None
+    maximum: float | None = None
     choices: tuple[str, ...] = ()
+    pattern: str | None = None
 
 
 def _fields(*names):
@@ -42,7 +54,7 @@ CATEGORY_CONTRACTS = {
         "platform", "socket", "power_w", "integrated_graphics", "cores_threads", "cores", "threads")),
     "mb": CategoryContract("motherboards", ("socket", "memory_generations", "form_factor"), _fields(
         "platform", "socket", "chipset", "memory_generations", "memory_slots", "memory_freq_max",
-        "m2_slots", "sata_ports", "display_outputs", "form_factor", "color")),
+        "memory_max_gb", "m2_slots", "sata_ports", "display_outputs", "form_factor", "color")),
     "memory": CategoryContract("memory", ("generation", "capacity_gb", "module_count"), _fields(
         "generation", "capacity_gb", "module_count", "frequency_mt", "timing", "color", "rgb")),
     "storage": CategoryContract("storage", ("interface", "capacity_gb"), _fields(
@@ -53,7 +65,8 @@ CATEGORY_CONTRACTS = {
         "gpu_cooling", "gpu_radiator_required", "length_mm", "power_w", "power_connectors",
         "requires_16pin_psu", "color", "rgb")),
     "cooler": CategoryContract("coolers", ("type", "socket_support"), _fields(
-        "type", "height_mm", "radiator_mm", "socket_support", "color", "rgb")),
+        "type", "height_mm", "radiator_mm", "socket_support", "air_cooler_layout",
+        "heatpipe_count", "color", "rgb")),
     "psu": CategoryContract("psus", ("wattage_w", "form_factor"), _fields(
         "wattage_w", "form_factor", "length_mm", "efficiency", "modular", "native_16pin_gpu_power", "color")),
     "case": CategoryContract("cases", ("motherboard_support", "gpu_length_mm", "cpu_cooler_height_mm", "psu_support"), _fields(
@@ -68,26 +81,55 @@ CATEGORY_CONTRACTS = {
 }
 CATEGORY_SECTIONS = {name: contract.section for name, contract in CATEGORY_CONTRACTS.items()}
 ALLOWED_SPEC_FIELDS = frozenset().union(*(contract.specs for contract in CATEGORY_CONTRACTS.values()))
+MINIMUM_NUMBER = 0.000001
+GPU_POWER_EVIDENCE_FIELD = "power_connectors/requires_16pin_psu"
+GPU_CATALOG_CONFLICT_FIELDS = (
+    "chip", "vram_gb", "memory_type", "length_mm", "power_w",
+    "power_connectors", "requires_16pin_psu",
+)
+NON_BLANK_PATTERN = r"\S"
+GPU_POWER_CONNECTOR_SCHEMA_PATTERN = (
+    r"^(?:(?:[1-4][xX])?(?:6|8|16)[pP][iI][nN]|"
+    r"12[Vv](?:[hH][pP][wW][rR]|-?2[xX]6))$"
+)
+GPU_POWER_CONNECTOR_PATTERN = re.compile(GPU_POWER_CONNECTOR_SCHEMA_PATTERN)
+DISPLAY_OUTPUT_SCHEMA_PATTERN = r"^(?:HDMI|DisplayPort|VGA|DVI|USB-C|Thunderbolt)$"
+
+
 FIELD_CONTRACTS = {
-    **{name: FieldContract("string") for name in (
+    **{name: FieldContract("string", pattern=NON_BLANK_PATTERN) for name in (
         "platform", "socket", "chipset", "form_factor", "color", "generation", "timing", "interface",
         "storage_type", "series", "chip", "gpu_vendor", "memory_type", "gpu_cooling", "type", "efficiency",
         "blade_direction", "fan_type", "resolution", "psu_length_condition", "cores_threads", "fan_mounts",
         "air_flow_type")},
-    **{name: FieldContract("number", 0.000001) for name in (
-        "power_w", "cores", "threads", "memory_slots", "memory_freq_max", "m2_slots", "sata_ports",
-        "capacity_gb", "capacity_tb", "module_count", "frequency_mt", "pcie_generation", "dram_cache_mb",
-        "vram_gb", "memory_bus_bit", "memory_bandwidth_gbps", "length_mm", "height_mm", "radiator_mm",
-        "wattage_w", "gpu_length_mm", "cpu_cooler_height_mm", "fan_slots_count", "psu_length_mm",
-        "psu_length_recommended_mm", "size_inch", "refresh_rate_hz", "size_mm", "pack_count",
-        "radiator_fan_bundle_mm")},
+    **{name: FieldContract("number", MINIMUM_NUMBER) for name in (
+        "power_w", "cores", "threads", "memory_slots", "memory_freq_max", "memory_max_gb",
+        "m2_slots", "sata_ports", "capacity_gb", "capacity_tb", "module_count", "frequency_mt",
+        "pcie_generation", "dram_cache_mb", "vram_gb", "memory_bus_bit",
+        "memory_bandwidth_gbps", "length_mm", "height_mm", "radiator_mm", "wattage_w",
+        "gpu_length_mm", "cpu_cooler_height_mm", "fan_slots_count", "psu_length_mm",
+        "psu_length_recommended_mm", "size_inch", "refresh_rate_hz", "size_mm",
+        "pack_count", "radiator_fan_bundle_mm",
+    )},
     **{name: FieldContract("boolean") for name in (
         "integrated_graphics", "rgb", "dram_cache", "gpu_radiator_required", "requires_16pin_psu", "modular",
         "native_16pin_gpu_power", "has_dust_filter", "is_showcase", "is_linkable", "has_screen", "default_recommend")},
-    **{name: FieldContract("string_list") for name in (
-        "memory_generations", "display_outputs", "colors", "power_connectors", "socket_support",
+    **{name: FieldContract("string_list", pattern=NON_BLANK_PATTERN) for name in (
+        "memory_generations", "colors", "socket_support",
         "motherboard_support", "psu_support")},
-    "radiator_support": FieldContract("number_list"),
+    "display_outputs": FieldContract(
+        "string_list", pattern=DISPLAY_OUTPUT_SCHEMA_PATTERN
+    ),
+    "power_connectors": FieldContract(
+        "string_list", pattern=GPU_POWER_CONNECTOR_SCHEMA_PATTERN
+    ),
+    "radiator_support": FieldContract("number_list", MINIMUM_NUMBER),
+    "air_cooler_layout": FieldContract(
+        "string",
+        choices=("low_profile", "down_draft", "single_tower", "dual_tower"),
+        pattern=NON_BLANK_PATTERN,
+    ),
+    "heatpipe_count": FieldContract("integer", minimum=1, maximum=16),
 }
 
 
@@ -161,8 +203,8 @@ def _iso_date(value, path):
 
 
 def _price(value, path):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-        raise OverlayError("invalid_price", "price must be a positive finite number", path)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < MINIMUM_NUMBER:
+        raise OverlayError("invalid_price", f"price must be a finite number of at least {MINIMUM_NUMBER}", path)
 
 
 def _validate_spec_value(field, value, path):
@@ -170,15 +212,52 @@ def _validate_spec_value(field, value, path):
     if contract is None:
         return
     if contract.kind == "string":
-        valid = isinstance(value, str) and bool(value.strip())
+        valid = (
+            isinstance(value, str)
+            and contract.pattern is not None
+            and re.search(contract.pattern, value) is not None
+            and (not contract.choices or value in contract.choices)
+        )
     elif contract.kind == "number":
-        valid = not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and value >= contract.minimum
+        valid = (
+            not isinstance(value, bool)
+            and isinstance(value, (int, float))
+            and math.isfinite(value)
+            and value >= contract.minimum
+            and (contract.maximum is None or value <= contract.maximum)
+        )
+    elif contract.kind == "integer":
+        valid = (
+            not isinstance(value, bool)
+            and isinstance(value, int)
+            and value >= contract.minimum
+            and (contract.maximum is None or value <= contract.maximum)
+        )
     elif contract.kind == "boolean":
         valid = isinstance(value, bool)
     elif contract.kind == "string_list":
-        valid = isinstance(value, list) and bool(value) and all(isinstance(x, str) and x.strip() for x in value)
+        valid = (
+            isinstance(value, list)
+            and bool(value)
+            and contract.pattern is not None
+            and all(
+                isinstance(x, str) and re.search(contract.pattern, x) is not None
+                for x in value
+            )
+        )
     elif contract.kind == "number_list":
-        valid = isinstance(value, list) and bool(value) and all(not isinstance(x, bool) and isinstance(x, (int, float)) and math.isfinite(x) and x > 0 for x in value)
+        minimum = contract.minimum if contract.minimum is not None else MINIMUM_NUMBER
+        valid = (
+            isinstance(value, list)
+            and bool(value)
+            and all(
+                not isinstance(x, bool)
+                and isinstance(x, (int, float))
+                and math.isfinite(x)
+                and x >= minimum
+                for x in value
+            )
+        )
     else:
         valid = False
     if not valid:
@@ -236,6 +315,41 @@ def validate_overlay(doc):
         _keys(specs, CATEGORY_CONTRACTS[category].specs, p + ".specs")
         for field, value in specs.items():
             _validate_spec_value(field, value, p + f".specs.{field}")
+        if (
+            category == "storage"
+            and "form_factor" in specs
+            and normalize_explicit_storage_form_factor(specs["form_factor"]) is None
+        ):
+            raise OverlayError(
+                "invalid_spec",
+                "storage form_factor must be M.2/NGFF with an optional supported size, mSATA, 2.5 SATA, or 3.5 SATA",
+                p + ".specs.form_factor",
+            )
+        if (
+            category == "storage"
+            and "interface" in specs
+            and "form_factor" in specs
+            and storage_interface_form_factor_consistent(
+                specs["interface"], specs["form_factor"]
+            ) is not True
+        ):
+            raise OverlayError(
+                "invalid_spec",
+                "storage interface and form_factor are not a supported semantic pair",
+                p + ".specs",
+            )
+        if (
+            category == "storage"
+            and "form_factor" in specs
+            and storage_model_form_factor_consistent(
+                component["model"], specs["form_factor"]
+            ) is False
+        ):
+            raise OverlayError(
+                "spec_conflict",
+                "storage form_factor conflicts with explicit physical-shape evidence in model",
+                p + ".specs.form_factor",
+            )
         if "price" in component:
             _price(component["price"], p + ".price")
             _iso_date(component.get("price_date"), p + ".price_date")
@@ -260,7 +374,8 @@ def normalize_overlay(doc):
 
 
 def _compact(value):
-    return "".join(ch for ch in str(value or "").upper() if ch.isalnum())
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    return "".join(ch for ch in text.upper() if ch.isalnum())
 
 
 def _identity_keys(item, alias_data, category, *, include_explicit):
@@ -446,6 +561,164 @@ def _apply_user_quote(item, quote, currency):
     })
 
 
+def _has_gpu_power_evidence(item):
+    connectors = item.get("power_connectors")
+    recognized_connectors = (
+        isinstance(connectors, list)
+        and bool(connectors)
+        and all(
+            isinstance(value, str)
+            and GPU_POWER_CONNECTOR_PATTERN.fullmatch(value.strip())
+            for value in connectors
+        )
+    )
+    # False without a connector is indistinguishable from a weak-model guess.
+    # A positive 16-pin requirement is actionable on its own; a negative claim
+    # must be backed by a canonical connector such as 8pin.
+    return recognized_connectors or item.get("requires_16pin_psu") is True
+
+
+def _missing_critical_fields(category, item, *, gpu_power_evidence=True):
+    missing = [
+        field
+        for field in CATEGORY_CONTRACTS[category].critical
+        if item.get(field) in (None, "", [])
+    ]
+    if category == "gpu" and not gpu_power_evidence:
+        missing.append(GPU_POWER_EVIDENCE_FIELD)
+    return missing
+
+
+def enrich_resolved_item(section, item):
+    """Apply runtime inference without turning an explicit overlay unknown into False."""
+    enriched = enrich_item(section, item)
+    if GPU_POWER_EVIDENCE_FIELD in enriched.get("_overlay_incomplete_fields", []):
+        enriched.pop("requires_16pin_psu", None)
+    conflicts = enriched.get("_catalog_conflict_fields")
+    if conflicts:
+        enriched["spec_conflicts"] = list(conflicts)
+    return enriched
+
+
+def _canonical_spec_value(field, value):
+    """Return a stable comparison key without rewriting the stored fact."""
+    if field == "radiator_support":
+        if isinstance(value, bool):
+            return value
+        try:
+            number = float(str(value).strip())
+        except (TypeError, ValueError):
+            pass
+        else:
+            return int(number) if number.is_integer() else number
+    if not isinstance(value, str):
+        return value
+    if field == "form_factor":
+        storage_shape = normalize_explicit_storage_form_factor(value)
+        if storage_shape is not None:
+            return _compact(storage_shape)
+    if field == "socket_support":
+        text = unicodedata.normalize("NFKC", value)
+        sockets = []
+        for part in re.split(r"[/,|，、;；&+]|\bAND\b|和|及|与", text, flags=re.IGNORECASE):
+            key = re.sub(r"[^0-9A-Z]", "", part.upper())
+            previous = None
+            while key and key != previous:
+                previous = key
+                for prefix in ("SOCKET", "INTEL", "AMD"):
+                    if key.startswith(prefix):
+                        key = key[len(prefix):]
+                        break
+            if key in {
+                "775", "1150", "1151", "1155", "1156", "115X", "1200",
+                "1366", "1700", "1851", "2011", "20113", "2066",
+            }:
+                key = "LGA" + key
+            if key:
+                sockets.append(key)
+        if sockets:
+            return tuple(sockets)
+    key = _compact(value)
+    if field == "power_connectors":
+        counted = re.fullmatch(r"([1-4])X((?:6|8|16)PIN)", key)
+        if counted:
+            return tuple([counted.group(2)] * int(counted.group(1)))
+    if field in {"type", "gpu_cooling"}:
+        aliases = {
+            "LIQUID": "LIQUID",
+            "WATER": "LIQUID",
+            "水冷": "LIQUID",
+            "一体式": "LIQUID",
+            "AIR": "AIR",
+            "风冷": "AIR",
+        }
+        key = aliases.get(key, key)
+    return key
+
+
+def _canonical_list_values(field, values):
+    """Canonicalize unordered list facts and expand connector/socket bundles."""
+    keys = []
+    for value in values:
+        canonical = _canonical_spec_value(field, value)
+        if field in {"socket_support", "power_connectors"} and isinstance(canonical, tuple):
+            keys.extend(canonical)
+        else:
+            keys.append(canonical)
+    return keys
+
+
+def _spec_values_equivalent(field, supplied, effective):
+    """Compare explicit facts semantically, including unordered set-like lists."""
+    if isinstance(supplied, (list, tuple)) and isinstance(effective, (list, tuple)):
+        supplied_keys = _canonical_list_values(field, supplied)
+        effective_keys = _canonical_list_values(field, effective)
+        return sorted(supplied_keys, key=repr) == sorted(effective_keys, key=repr)
+    return _canonical_spec_value(field, supplied) == _canonical_spec_value(field, effective)
+
+
+def _catalog_gpu_identity(item):
+    return _compact(item.get("brand")), _compact(item.get("model"))
+
+
+def _hashable_catalog_fact(field, value):
+    if isinstance(value, (list, tuple, set)):
+        canonical_items = _canonical_list_values(field, value)
+        return tuple(sorted(canonical_items, key=repr))
+    return _canonical_spec_value(field, value)
+
+
+def mark_base_gpu_spec_conflicts(items):
+    """Mark same-name base GPUs whose compatibility-sensitive facts disagree."""
+    grouped = {}
+    for item in items:
+        identity = _catalog_gpu_identity(item)
+        if not all(identity):
+            continue
+        facts = grouped.setdefault(
+            identity, {field: set() for field in GPU_CATALOG_CONFLICT_FIELDS}
+        )
+        for field in GPU_CATALOG_CONFLICT_FIELDS:
+            value = item.get(field)
+            if value in (None, "", []):
+                continue
+            facts[field].add(_hashable_catalog_fact(field, value))
+    conflicts_by_identity = {
+        identity: tuple(
+            field for field in GPU_CATALOG_CONFLICT_FIELDS
+            if len(facts[field]) > 1
+        )
+        for identity, facts in grouped.items()
+    }
+    for item in items:
+        conflicts = conflicts_by_identity.get(_catalog_gpu_identity(item), ())
+        if conflicts:
+            item["_catalog_conflict_fields"] = list(conflicts)
+        else:
+            item.pop("_catalog_conflict_fields", None)
+    return conflicts_by_identity
+
+
 def resolve_catalog_documents(sections, documents, *, data_dir, normalize_names=True):
     """Resolve already-parsed overlays; shared by import, query, and check."""
     alias_data = load_name_aliases(data_dir)
@@ -458,6 +731,7 @@ def resolve_catalog_documents(sections, documents, *, data_dir, normalize_names=
         ]
         for name, items in sections.items()
     }
+    mark_base_gpu_spec_conflicts(resolved.get("gpus", []))
     by_id = {}
     category_by_id = {}
     for category, section in CATEGORY_SECTIONS.items():
@@ -468,6 +742,8 @@ def resolve_catalog_documents(sections, documents, *, data_dir, normalize_names=
             category_by_id[item["id"]] = category
             if item.get("price_cny"):
                 item.setdefault("base_price_cny", item["price_cny"])
+                item.setdefault("base_price_status", item.get("price_status"))
+                item.setdefault("base_price_date", item.get("price_date"))
                 item.setdefault("active_price", item["price_cny"])
                 item.setdefault("price_currency", "CNY")
 
@@ -479,7 +755,7 @@ def resolve_catalog_documents(sections, documents, *, data_dir, normalize_names=
         collisions = sorted(new_ids & set(by_id))
         if collisions:
             raise OverlayError("duplicate_id", f"component id already exists: {collisions[0]}")
-        for component in doc["components"]:
+        for component_index, component in enumerate(doc["components"]):
             base = by_id.get(component.get("base_component_id")) if component.get("base_component_id") else None
             if component.get("base_component_id") and base is None:
                 raise OverlayError("unknown_target", f"base component does not exist: {component['base_component_id']}")
@@ -493,28 +769,83 @@ def resolve_catalog_documents(sections, documents, *, data_dir, normalize_names=
             item = dict(base or {})
             if base:
                 for field in (
-                    "price_cny", "base_price_cny", "base_price_status", "base_price_date",
                     "user_price", "user_price_currency", "user_price_date", "active_price",
                     "price_currency", "price_status", "price_date", "user_quote_note",
+                    "_overlay_incomplete_fields",
                 ):
                     item.pop(field, None)
+                if item.get("price_cny") is not None:
+                    item["active_price"] = item["price_cny"]
+                    item["price_currency"] = "CNY"
+                    item["price_status"] = item.get("base_price_status")
+                    item["price_date"] = item.get("base_price_date")
             supplied_specs = component.get("specs", {})
+            inherited_confirmed_spec_fields = set(
+                item.get(USER_CONFIRMED_SPEC_FIELDS, [])
+            )
+            confirmed_spec_fields = set(inherited_confirmed_spec_fields)
+            confirmed_spec_fields.update(supplied_specs)
+            inherited_conflicts = set(item.get("_catalog_conflict_fields", []))
             for field, value in supplied_specs.items():
-                if base and base.get(field) not in (None, "", []) and base.get(field) != value:
+                repairs_unconfirmed_storage_shape = (
+                    component["category"] == "storage"
+                    and field == "form_factor"
+                    and "form_factor" not in inherited_confirmed_spec_fields
+                    and normalize_explicit_storage_form_factor(value)
+                    == infer_storage_form_factor(item)
+                )
+                if (
+                    base
+                    and base.get(field) not in (None, "", [])
+                    and field not in inherited_conflicts
+                    and not repairs_unconfirmed_storage_shape
+                    and not _spec_values_equivalent(field, value, base.get(field))
+                ):
                     raise OverlayError("spec_conflict", f"{field} conflicts with inherited base specification")
                 item[field] = value
+                inherited_conflicts.discard(field)
+            if confirmed_spec_fields:
+                item[USER_CONFIRMED_SPEC_FIELDS] = sorted(confirmed_spec_fields)
+            if inherited_conflicts:
+                item["_catalog_conflict_fields"] = sorted(inherited_conflicts)
+            else:
+                item.pop("_catalog_conflict_fields", None)
             item.update({"id": component["id"], "brand": component["brand"], "model": component["model"]})
             if base:
                 item["base_component_id"] = component["base_component_id"]
             for key in ("brand_en", "model_en", "note"):
                 if component.get(key) is not None:
                     item[key] = component[key]
+            gpu_power_evidence = component["category"] != "gpu" or _has_gpu_power_evidence(item)
+            item = normalize_item_names(item, alias_data, component["category"])
+            item = enrich_item(CATEGORY_SECTIONS[component["category"]], item)
+            if (
+                component["category"] == "storage"
+                and storage_interface_form_factor_consistent(
+                    item.get("interface"), item.get("form_factor")
+                ) is False
+            ):
+                raise OverlayError(
+                    "invalid_spec",
+                    "effective storage interface and form_factor are not a supported semantic pair",
+                    f"$.components[{component_index}].specs",
+                )
+            for field, supplied_value in supplied_specs.items():
+                if not _spec_values_equivalent(field, supplied_value, item.get(field)):
+                    raise OverlayError(
+                        "spec_conflict",
+                        f"explicit {field} conflicts with deterministic model or inherited inference",
+                        f"$.components[{component_index}].specs.{field}",
+                    )
+            if not gpu_power_evidence:
+                item.pop("requires_16pin_psu", None)
             if component.get("price") is not None:
                 _apply_user_quote(item, component, currency)
-            missing = [field for field in CATEGORY_CONTRACTS[component["category"]].critical if item.get(field) in (None, "", [])]
+            missing = _missing_critical_fields(
+                component["category"], item, gpu_power_evidence=gpu_power_evidence
+            )
             if missing:
                 item["_overlay_incomplete_fields"] = missing
-            item = normalize_item_names(item, alias_data, component["category"])
             resolved.setdefault(CATEGORY_SECTIONS[component["category"]], []).append(item)
             by_id[item["id"]] = item
             category_by_id[item["id"]] = component["category"]

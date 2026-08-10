@@ -45,6 +45,60 @@
         }
     },
     "$defs": {
+        "storageM2FormFactor": {
+            "type": "string",
+            "pattern": "^(?:[MmＭｍ]\\s*[.．\\-－]?\\s*[2２]|[NnＮｎ][GgＧｇ][FfＦｆ][FfＦｆ])(?:\\s*[-/－／]?\\s*(?:2230|2242|2260|2280|22110|２２３０|２２４２|２２６０|２２８０|２２１１０))?$"
+        },
+        "storageMSataFormFactor": {
+            "type": "string",
+            "pattern": "^[MmＭｍ]\\s*[-.－．]?\\s*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ]$"
+        },
+        "storageSataBayFormFactor": {
+            "type": "string",
+            "pattern": "^(?:(?:[23２３][.．][5５])(?:\\s*(?:[IiＩｉ][NnＮｎ](?:[CcＣｃ][HhＨｈ])?|英寸|[\\\"']))?\\s*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ]|[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ]\\s*(?:[23２３][.．][5５])(?:\\s*(?:[IiＩｉ][NnＮｎ](?:[CcＣｃ][HhＨｈ])?|英寸|[\\\"']))?)$"
+        },
+        "storageFormFactor": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/storageM2FormFactor"
+                },
+                {
+                    "$ref": "#/$defs/storageMSataFormFactor"
+                },
+                {
+                    "$ref": "#/$defs/storageSataBayFormFactor"
+                }
+            ]
+        },
+        "storageM2Interface": {
+            "type": "string",
+            "anyOf": [
+                {
+                    "pattern": "^(?!.*(?:[UuＵｕ]\\s*[.．\\-－]?\\s*[2２]|[23２３][.．][5５]\\s*[-/－／]?\\s*(?:[IiＩｉ][NnＮｎ](?:[CcＣｃ][HhＨｈ])?|[SsＳｓ][SsＳｓ][DdＤｄ]|[HhＨｈ][DdＤｄ][DdＤｄ]|[DdＤｄ][RrＲｒ][IiＩｉ][VvＶｖ][EeＥｅ]|英寸|硬盘|固态|[\\\"']))).*(?:[MmＭｍ]\\s*[.．\\-－]?\\s*[2２]|[NnＮｎ][GgＧｇ][FfＦｆ][FfＦｆ]).*$"
+                },
+                {
+                    "pattern": "^(?!.*(?:[UuＵｕ]\\s*[.．\\-－]?\\s*[2２]|[23２３][.．][5５]\\s*[-/－／]?\\s*(?:[IiＩｉ][NnＮｎ](?:[CcＣｃ][HhＨｈ])?|[SsＳｓ][SsＳｓ][DdＤｄ]|[HhＨｈ][DdＤｄ][DdＤｄ]|[DdＤｄ][RrＲｒ][IiＩｉ][VvＶｖ][EeＥｅ]|英寸|硬盘|固态|[\\\"']))).*(?:[NnＮｎ][VvＶｖ][MmＭｍ][EeＥｅ]|[PpＰｐ][CcＣｃ][IiＩｉ]\\s*[-.－．]?\\s*[EeＥｅ]).*$"
+                },
+                {
+                    "pattern": "^(?!.*(?:[MmＭｍ]\\s*[-.－．]?\\s*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ]|[UuＵｕ][SsＳｓ][BbＢｂ]|[MmＭｍ]\\s*[.．\\-－]?\\s*[2２]|[NnＮｎ][GgＧｇ][FfＦｆ][FfＦｆ]|[NnＮｎ][VvＶｖ][MmＭｍ][EeＥｅ])).*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ].*$"
+                }
+            ]
+        },
+        "storageMSataInterface": {
+            "type": "string",
+            "anyOf": [
+                {
+                    "pattern": "[MmＭｍ]\\s*[-.－．]?\\s*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ]"
+                },
+                {
+                    "pattern": "^(?!.*(?:[UuＵｕ][SsＳｓ][BbＢｂ]|[MmＭｍ]\\s*[.．\\-－]?\\s*[2２]|[NnＮｎ][GgＧｇ][FfＦｆ][FfＦｆ]|[NnＮｎ][VvＶｖ][MmＭｍ][EeＥｅ])).*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ].*$"
+                }
+            ]
+        },
+        "storageSataBayInterface": {
+            "type": "string",
+            "pattern": "^(?!.*(?:[MmＭｍ]\\s*[-.－．]?\\s*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ]|[UuＵｕ][SsＳｓ][BbＢｂ]|[MmＭｍ]\\s*[.．\\-－]?\\s*[2２]|[NnＮｎ][GgＧｇ][FfＦｆ][FfＦｆ]|[NnＮｎ][VvＶｖ][MmＭｍ][EeＥｅ]|[PpＰｐ][CcＣｃ][IiＩｉ]\\s*[-.－．]?\\s*[EeＥｅ])).*[SsＳｓ][AaＡａ][TtＴｔ][AaＡａ].*$"
+        },
         "quote": {
             "type": "object",
             "additionalProperties": false,
@@ -61,11 +115,12 @@
                 },
                 "price": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "price_date": {
                     "type": "string",
-                    "format": "date"
+                    "format": "date",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                 },
                 "note": {
                     "type": "string",
@@ -131,11 +186,12 @@
                 },
                 "price": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "price_date": {
                     "type": "string",
-                    "format": "date"
+                    "format": "date",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                 },
                 "note": {
                     "type": "string",
@@ -202,6 +258,7 @@
                                         "memory_generations",
                                         "memory_slots",
                                         "memory_freq_max",
+                                        "memory_max_gb",
                                         "m2_slots",
                                         "sata_ports",
                                         "display_outputs",
@@ -268,7 +325,56 @@
                                         "dram_cache_mb",
                                         "series"
                                     ]
-                                }
+                                },
+                                "properties": {
+                                    "form_factor": {
+                                        "$ref": "#/$defs/storageFormFactor"
+                                    }
+                                },
+                                "allOf": [
+                                    {
+                                        "if": {
+                                            "required": [
+                                                "interface",
+                                                "form_factor"
+                                            ]
+                                        },
+                                        "then": {
+                                            "anyOf": [
+                                                {
+                                                    "properties": {
+                                                        "form_factor": {
+                                                            "$ref": "#/$defs/storageM2FormFactor"
+                                                        },
+                                                        "interface": {
+                                                            "$ref": "#/$defs/storageM2Interface"
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    "properties": {
+                                                        "form_factor": {
+                                                            "$ref": "#/$defs/storageMSataFormFactor"
+                                                        },
+                                                        "interface": {
+                                                            "$ref": "#/$defs/storageMSataInterface"
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    "properties": {
+                                                        "form_factor": {
+                                                            "$ref": "#/$defs/storageSataBayFormFactor"
+                                                        },
+                                                        "interface": {
+                                                            "$ref": "#/$defs/storageSataBayInterface"
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
                             }
                         }
                     }
@@ -329,6 +435,8 @@
                                         "height_mm",
                                         "radiator_mm",
                                         "socket_support",
+                                        "air_cooler_layout",
+                                        "heatpipe_count",
                                         "color",
                                         "rgb"
                                     ]
@@ -479,7 +587,7 @@
                 },
                 "power_w": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "integrated_graphics": {
                     "type": "boolean"
@@ -491,11 +599,11 @@
                 },
                 "cores": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "threads": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "chipset": {
                     "type": "string",
@@ -513,19 +621,23 @@
                 },
                 "memory_slots": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "memory_freq_max": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
+                },
+                "memory_max_gb": {
+                    "type": "number",
+                    "minimum": 0.000001
                 },
                 "m2_slots": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "sata_ports": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "display_outputs": {
                     "type": "array",
@@ -533,7 +645,7 @@
                     "items": {
                         "type": "string",
                         "minLength": 1,
-                        "pattern": "\\S"
+                        "pattern": "^(?:HDMI|DisplayPort|VGA|DVI|USB-C|Thunderbolt)$"
                     }
                 },
                 "form_factor": {
@@ -562,19 +674,19 @@
                 },
                 "capacity_gb": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "capacity_tb": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "module_count": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "frequency_mt": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "timing": {
                     "type": "string",
@@ -591,7 +703,7 @@
                 },
                 "pcie_generation": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "storage_type": {
                     "type": "string",
@@ -603,7 +715,7 @@
                 },
                 "dram_cache_mb": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "series": {
                     "type": "string",
@@ -622,7 +734,7 @@
                 },
                 "vram_gb": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "memory_type": {
                     "type": "string",
@@ -631,11 +743,11 @@
                 },
                 "memory_bus_bit": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "memory_bandwidth_gbps": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "gpu_cooling": {
                     "type": "string",
@@ -647,7 +759,7 @@
                 },
                 "length_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "power_connectors": {
                     "type": "array",
@@ -655,7 +767,7 @@
                     "items": {
                         "type": "string",
                         "minLength": 1,
-                        "pattern": "\\S"
+                        "pattern": "^(?:(?:[1-4][xX])?(?:6|8|16)[pP][iI][nN]|12[Vv](?:[hH][pP][wW][rR]|-?2[xX]6))$"
                     }
                 },
                 "requires_16pin_psu": {
@@ -668,11 +780,11 @@
                 },
                 "height_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "radiator_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "socket_support": {
                     "type": "array",
@@ -683,9 +795,24 @@
                         "pattern": "\\S"
                     }
                 },
+                "air_cooler_layout": {
+                    "type": "string",
+                    "pattern": "\\S",
+                    "enum": [
+                        "low_profile",
+                        "down_draft",
+                        "single_tower",
+                        "dual_tower"
+                    ]
+                },
+                "heatpipe_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                },
                 "wattage_w": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "efficiency": {
                     "type": "string",
@@ -709,18 +836,18 @@
                 },
                 "gpu_length_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "cpu_cooler_height_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "radiator_support": {
                     "type": "array",
                     "minItems": 1,
                     "items": {
                         "type": "number",
-                        "exclusiveMinimum": 0
+                        "minimum": 0.000001
                     }
                 },
                 "fan_mounts": {
@@ -730,7 +857,7 @@
                 },
                 "fan_slots_count": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "psu_support": {
                     "type": "array",
@@ -743,11 +870,11 @@
                 },
                 "psu_length_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "psu_length_recommended_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "psu_length_condition": {
                     "type": "string",
@@ -772,19 +899,19 @@
                 },
                 "size_inch": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "refresh_rate_hz": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "size_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "pack_count": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "blade_direction": {
                     "type": "string",
@@ -799,7 +926,7 @@
                 },
                 "radiator_fan_bundle_mm": {
                     "type": "number",
-                    "exclusiveMinimum": 0
+                    "minimum": 0.000001
                 },
                 "fan_type": {
                     "type": "string",

@@ -5,6 +5,7 @@
 - Intel: 12/13/14 代 Core 台式机 + Core Ultra 200S 台式机
   - Plus 只作为 250K Plus/250KF Plus/270K Plus 等具体型号后缀
 - AMD: Ryzen 5 / Ryzen 7 / Ryzen 9 AM5 台式机优先；AM4 只保留 Ryzen 5/7 X3D + B550 + DDR4 的低预算 FPS 例外路线。明确查询该路线时给 CPU/主板命令加 `--socket AM4 --sort tier`，脚本只放行 AM4 X3D 与 B550；审计其他旧平台才使用 `--include-legacy`
+- 默认候选池不推荐旧显卡；但用户明确已有或点名某个旧芯片时，`--gpu-chip` 属于显式查件入口，可直接定位该芯片，不要求再附加 `--include-legacy`。普通浏览旧库仍使用 `--include-legacy`。
 - 无独显整机允许当前范围内已确认带核显的 Intel 非 F/KF、AMD APU/AM5 非 F 型号；必须用 `--integrated-graphics yes` 查询，不按型号印象手选核显。
 - 不收录: AM4 非 X3D 新装机路线、A520 搭高功耗 X3D 默认方案、Intel 11 代及更早、二手/99新/翻新/矿卡
 
@@ -46,6 +47,9 @@ Great Wall, Huntkey, MSI, ASUS, Thermaltake, XPG, Antec
 品牌: Thermalright, DeepCool, Cooler Master, ID-COOLING, Jonsbo,
 NZXT, Corsair, Arctic, Noctua, MSI, ASUS
 
+- 普通查询默认保留当前推荐范围；ITX、小钢炮或机箱给出明确风冷限高时，使用 `--max-cooler-height N` 显式查询已知高度的低矮/下压风冷。未知高度条目不因型号印象进入结果。
+- 散热结构字段包括 `socket_support`、`air_cooler_layout`（低矮/下压/单塔/双塔）、`heatpipe_count` 和 `radiator_mm`。字段只记录型号一致的明确证据；缺少塔体、热管或冷排尺寸时，高负载 CPU 配置不能完整通过。
+
 ## 机箱
 
 品牌: ASUS, Jonsbo, DeepCool, Lian Li, Cooler Master, NZXT,
@@ -55,7 +59,7 @@ Fractal Design, Corsair, Montech, Phanteks, Thermaltake, SAMA
 
 - 独立按需品类，仅海景房补风扇、水冷夹汉堡、风道/无光风扇或用户明确要风扇时启用。
 - 收录机箱风扇、冷排风扇套装和无风扇水冷框架；CPU 风冷、双塔/单塔/下压式散热器和内存散热器不属于风扇分组。
-- 可用字段包括尺寸、正页/反页、颜色、RGB/无光、积木/串联、带屏、240/360/420 一体式/冷排风扇套装和默认推荐状态；无风扇水冷框架默认不参与机箱风扇推荐。
+- 可用字段包括尺寸、正页/反页、颜色、RGB/无光、积木/串联、带屏、240/280/360/420/480 一体式或冷排风扇套装和默认推荐状态；无风扇水冷框架默认不参与机箱风扇推荐，但用户明确指定 `--fan-type aio_frame` 时可查询。
 - 风扇转速字段暂不完整；需要控制噪音时优先同系列/同尺寸/同定位风扇，避免混搭明显高转高速型号。
 
 ## 显示器

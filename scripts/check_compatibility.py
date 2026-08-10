@@ -14,14 +14,24 @@ import json
 import math
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 from component_inference import (
+    THERMAL_HIGH,
+    THERMAL_LOW,
+    THERMAL_MAINSTREAM,
+    THERMAL_STRONG,
     enrich_item,
+    infer_cooler_thermal_profile,
+    infer_cpu_conservative_power_w,
+    infer_cpu_required_thermal_rank,
     infer_cpu_integrated_graphics,
     infer_native_16pin_psu,
     infer_requires_16pin_gpu,
     normalize_display_outputs,
+    storage_interface_form_factor_consistent,
+    storage_model_form_factor_consistent,
 )
 from power_budget import (
     DEFAULT_NON_CORE_POWER_W,
@@ -29,7 +39,14 @@ from power_budget import (
     PSU_TIGHT_MARGIN_W,
     recommended_psu_w,
 )
-from catalog_overlay import OverlayError, load_catalog_sections, resolve_catalog, resolve_id
+from catalog_overlay import (
+    GPU_POWER_EVIDENCE_FIELD,
+    OverlayError,
+    enrich_resolved_item,
+    load_catalog_sections,
+    resolve_catalog,
+    resolve_id,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -41,12 +58,18 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 PSU_CASE_CLEARANCE_WARNING_MM = 20
 CPU_COOLER_CLEARANCE_WARNING_MM = 5
+THERMAL_RANK_LABELS = {
+    THERMAL_LOW: "低功耗散热级",
+    THERMAL_MAINSTREAM: "单塔四热管或同级",
+    THERMAL_STRONG: "双塔六热管或240/280水冷级",
+    THERMAL_HIGH: "360mm及以上水冷级",
+}
 
 
 class CompatibilityChecker:
     """装机兼容性检查引擎。
 
-    检查 12 类基础兼容性: CPU↔主板, 内存↔主板(代际/数量/容量),
+    检查基础兼容性: CPU↔主板, 散热↔CPU, 散热能力, 内存↔主板(代际/数量/容量),
     显卡↔机箱, 硬盘↔主板, 电源↔功耗, 散热↔机箱, 机箱↔主板, 机箱↔电源。
     """
 
@@ -67,6 +90,7 @@ class CompatibilityChecker:
         280: {140, 280},
         360: {120, 240, 360},
         420: {140, 280, 420},
+        480: {480},
     }
 
     def _parse_num(self, val, default=0):
@@ -98,7 +122,8 @@ class CompatibilityChecker:
         """移除非字母数字字符并转大写，用于接口/尺寸比较。"""
         if not val:
             return ""
-        return re.sub(r"[^0-9a-zA-Z]", "", str(val)).upper()
+        text = unicodedata.normalize("NFKC", str(val))
+        return re.sub(r"[^0-9a-zA-Z]", "", text).upper()
 
     def _as_list(self, value):
         """Normalize nullable/list-like catalog fields without inventing facts."""
@@ -108,16 +133,34 @@ class CompatibilityChecker:
             return list(value)
         return [value]
 
+    @staticmethod
+    def _has_spec_conflict(item, *fields):
+        conflicts = set((item or {}).get("spec_conflicts", []))
+        return bool(conflicts.intersection(fields))
+
     def _normalize_socket_list(self, val):
         """Normalize socket strings while preserving multi-socket separators."""
         if not val:
             return []
-        parts = re.split(r"[/,|]", str(val))
+        text = unicodedata.normalize("NFKC", str(val))
+        parts = re.split(
+            r"[/,|，、;；&+]|\bAND\b|和|及|与", text, flags=re.IGNORECASE
+        )
         normalized = []
         for part in parts:
             socket = self._normalize(part)
-            if socket.startswith("SOCKET"):
-                socket = socket[len("SOCKET"):]
+            previous = None
+            while socket and socket != previous:
+                previous = socket
+                for prefix in ("SOCKET", "INTEL", "AMD"):
+                    if socket.startswith(prefix):
+                        socket = socket[len(prefix):]
+                        break
+            if socket in {
+                "775", "1150", "1151", "1155", "1156", "115X", "1200",
+                "1366", "1700", "1851", "2011", "20113", "2066",
+            }:
+                socket = "LGA" + socket
             if socket:
                 normalized.append(socket)
         return normalized
@@ -155,6 +198,69 @@ class CompatibilityChecker:
             return {"type": "error",
                     "msg": f"接口不兼容，CPU【{cpu.get('socket')}】，主板【{mb.get('socket')}】"}
         return {"type": "success", "msg": f"CPU和主板接口兼容【{mb.get('socket')}】"}
+
+    def check_cooler_cpu(self, cooler, cpu):
+        """检查散热器明确声明的扣具接口是否支持 CPU。"""
+        if not cooler or not cpu:
+            return {"type": "msg", "msg": f"缺少必要组件{('CPU' if cooler else '散热')}"}
+        cpu_sockets = self._normalize_socket_list(cpu.get("socket", ""))
+        cooler_sockets = []
+        for value in self._as_list(cooler.get("socket_support")):
+            cooler_sockets.extend(self._normalize_socket_list(value))
+        if not cpu_sockets:
+            return {"type": "msg", "msg": "CPU缺少接口信息，需下单前复核散热扣具"}
+        if not cooler_sockets:
+            incomplete = self._as_list(cooler.get("_overlay_incomplete_fields"))
+            if "socket_support" in incomplete:
+                return {"type": "msg", "msg": "用户散热器缺少接口支持信息，需下单前复核扣具"}
+            return {
+                "type": "skipped",
+                "msg": "内置旧库散热器缺少结构化扣具字段，沿用既有门禁并跳过接口检查",
+                "review_required": False,
+            }
+        if not set(cpu_sockets).intersection(cooler_sockets):
+            return {
+                "type": "error",
+                "msg": (
+                    f"散热器扣具不支持CPU接口，散热器支持【{'/'.join(self._as_list(cooler.get('socket_support')))}】，"
+                    f"CPU【{cpu.get('socket')}】"
+                ),
+            }
+        return {"type": "success", "msg": f"散热器扣具支持CPU接口【{cpu.get('socket')}】"}
+
+    def check_cooler_thermal_capacity(self, cooler, cpu):
+        """Compare evidenced cooler structure with the repository's conservative CPU tier."""
+        if not cooler or not cpu:
+            return {"type": "msg", "msg": f"缺少必要组件{('CPU' if cooler else '散热')}，无法检查散热能力"}
+        power_w = self._parse_num(infer_cpu_conservative_power_w(cpu), 0)
+        if power_w <= 0:
+            return {"type": "msg", "msg": "CPU缺少保守负载功耗字段，需复核持续负载散热需求"}
+        required_rank = infer_cpu_required_thermal_rank(cpu)
+
+        profile = infer_cooler_thermal_profile(cooler)
+        power_text = f"{float(power_w):g}W"
+        required_label = THERMAL_RANK_LABELS[required_rank]
+        if profile.rank is None:
+            return {
+                "type": "msg",
+                "msg": (
+                    f"CPU保守负载字段【{power_text}】要求至少【{required_label}】；"
+                    f"当前散热器【{profile.label}】，需复核塔体、热管或冷排尺寸后才能完整通过"
+                ),
+            }
+        if profile.rank < required_rank:
+            return {
+                "type": "warn",
+                "msg": (
+                    f"CPU保守负载字段【{power_text}】要求至少【{required_label}】；"
+                    f"当前散热证据【{profile.label}】低于仓库当前散热选型门槛，"
+                    "需复核持续负载温度与噪音，或升级散热器"
+                ),
+            }
+        return {
+            "type": "success",
+            "msg": f"散热证据【{profile.label}】达到CPU保守负载字段【{power_text}】的选型门槛",
+        }
 
     def check_memory_motherboard(self, memory_list, mb):
         """检查内存与主板兼容性: DDR 代际 + 频率。"""
@@ -223,6 +329,11 @@ class CompatibilityChecker:
             return {}
         if not case:
             return {"type": "msg", "msg": "缺少必要组件机箱"}
+        if self._has_spec_conflict(gpu, "length_mm"):
+            return {
+                "type": "msg",
+                "msg": f"显卡{index}同型号目录记录的长度互相冲突，需按精确SKU官网规格复核后再判断机箱限长",
+            }
         gpu_len = self._parse_num(gpu.get("length_mm", 0))
         case_limit = self._parse_num(case.get("gpu_length_mm", 0))
         if not gpu_len or not case_limit:
@@ -238,6 +349,24 @@ class CompatibilityChecker:
             return {"type": "msg", "msg": "缺少必要组件硬盘"}
         if not mb:
             return {"type": "msg", "msg": "缺少必要组件主板"}
+        conflicting_storage = [
+            str(index + 1)
+            for index, storage in enumerate(storage_list)
+            if storage_interface_form_factor_consistent(
+                storage.get("interface"), storage.get("form_factor")
+            ) is False
+            or storage_model_form_factor_consistent(
+                storage.get("model"), storage.get("form_factor")
+            ) is False
+        ]
+        if conflicting_storage:
+            return {
+                "type": "msg",
+                "msg": (
+                    f"第{'、'.join(conflicting_storage)}块硬盘的接口、型号与物理形态证据互相矛盾，"
+                    "需按精确型号复核后再判断主板接口占用"
+                ),
+            }
         m2_slots = self._parse_num(mb.get("m2_slots", 0))
         m2_count = sum(
             1 for s in storage_list
@@ -261,6 +390,27 @@ class CompatibilityChecker:
             return {
                 "type": "msg",
                 "msg": f"第{'、'.join(missing_interfaces)}块硬盘缺少接口信息，需复核M.2/NVMe/SATA类型",
+            }
+        msata_count = sum(
+            1 for storage in storage_list
+            if "MSATA" in self._normalize(storage.get("form_factor"))
+            or "MSATA" in self._normalize(storage.get("interface"))
+        )
+        if msata_count:
+            return {
+                "type": "msg",
+                "msg": f"检测到mSATA硬盘【{msata_count}个】，需复核主板专用mSATA插槽或转接方案",
+            }
+        unknown_sata_forms = [
+            str(index + 1)
+            for index, storage in enumerate(storage_list)
+            if "SATA" in str(storage.get("interface") or "").upper()
+            and not str(storage.get("form_factor") or "").strip()
+        ]
+        if unknown_sata_forms:
+            return {
+                "type": "msg",
+                "msg": f"第{'、'.join(unknown_sata_forms)}块SATA硬盘缺少形态信息，需复核2.5/3.5英寸或M.2 SATA后再判断接口占用",
             }
         if m2_sata_count:
             support_value = (
@@ -299,6 +449,8 @@ class CompatibilityChecker:
             1 for s in storage_list
             if "SATA" in str(s.get("interface") or "").upper()
             and "M.2" not in str(s.get("form_factor") or "").upper()
+            and "MSATA" not in self._normalize(s.get("form_factor"))
+            and "MSATA" not in self._normalize(s.get("interface"))
         )
         sata_ports = self._parse_num(mb.get("sata_ports", 0))
         if not sata_count:
@@ -318,8 +470,10 @@ class CompatibilityChecker:
         """
         if not psu:
             return {"type": "msg", "msg": "缺少必要组件电源"}
+        if any(self._has_spec_conflict(gpu, "power_w") for gpu in (gpu_list or [])):
+            return {"type": "msg", "msg": "显卡同型号目录记录的功耗互相冲突，电源功率需按精确SKU复核"}
         psu_w = self._parse_rated_wattage(psu)
-        cpu_w = self._parse_num(cpu.get("power_w", 0)) if cpu else 0
+        cpu_w = self._parse_num(infer_cpu_conservative_power_w(cpu), 0) if cpu else 0
         gpu_powers = [self._parse_num(g.get("power_w", 0)) for g in (gpu_list or [])]
         gpu_w = sum(gpu_powers)
         if not psu_w:
@@ -344,8 +498,16 @@ class CompatibilityChecker:
         """检查显卡供电接口兼容性。"""
         if not gpu or not psu:
             return {}
+        if self._has_spec_conflict(gpu, "power_connectors", "requires_16pin_psu"):
+            return {"type": "msg", "msg": "显卡同型号目录记录的供电接口互相冲突，需按精确SKU复核线材"}
+        incomplete = self._as_list(gpu.get("_overlay_incomplete_fields"))
+        if GPU_POWER_EVIDENCE_FIELD in incomplete:
+            return {"type": "msg", "msg": "用户显卡未提供供电接口或16pin需求事实，需下单前复核线材"}
         connector_value = gpu.get("power_connectors")
-        if connector_value in (None, "", []) and gpu.get("requires_16pin_psu") is None:
+        if (
+            connector_value in (None, "", [])
+            and gpu.get("requires_16pin_psu") is not True
+        ):
             return {"type": "msg", "msg": "显卡缺少供电接口信息，需下单前复核线材"}
         requires_16pin = infer_requires_16pin_gpu(gpu)
         native_16pin = infer_native_16pin_psu(psu)
@@ -386,7 +548,7 @@ class CompatibilityChecker:
                 listed_sizes = {
                     int(size)
                     for value in rad_support
-                    for size in re.findall(r"(?<!\d)(120|140|240|280|360|420)(?!\d)", str(value))
+                    for size in re.findall(r"(?<!\d)(120|140|240|280|360|420|480)(?!\d)", str(value))
                 }
                 supported = any(
                     requested in self.RADIATOR_SIZE_COMPATIBILITY.get(size, {size})
@@ -507,6 +669,14 @@ class CompatibilityChecker:
         checks = []
         for missing_id in (missing_ids or []):
             checks.append(("ID校验", {"type": "error", "msg": f"未找到配件ID: {missing_id}"}))
+        parts = [cpu, mb, *mem, *storage, *gpus, psu, cooler, case]
+        for item in (part for part in parts if part):
+            conflicts = item.get("spec_conflicts", [])
+            if conflicts:
+                checks.append(("目录规格冲突", {
+                    "type": "msg",
+                    "msg": f"配件 {item.get('id')} 的同型号目录记录存在冲突字段: {', '.join(conflicts)}；需按精确SKU复核",
+                }))
         if strict:
             required = [
                 ("CPU", cpu),
@@ -522,7 +692,6 @@ class CompatibilityChecker:
                     checks.append(("完整性", {"type": "error", "msg": f"严格模式缺少{label}"}))
             if not gpus and not self._cpu_has_integrated_graphics(cpu):
                 checks.append(("完整性", {"type": "error", "msg": "严格模式缺少独显，且CPU未确认带核显"}))
-            parts = [cpu, mb, *mem, *storage, *gpus, psu, cooler, case]
             for item in (part for part in parts if part):
                 missing = item.get("_overlay_incomplete_fields", [])
                 if missing:
@@ -535,6 +704,8 @@ class CompatibilityChecker:
     def _compatibility_checks(self, cpu, mb, mem, storage, gpus, psu, cooler, case):
         checks = []
         self._add_check(checks, "CPU↔主板", self.check_cpu_motherboard(cpu, mb))
+        self._add_check(checks, "散热↔CPU", self.check_cooler_cpu(cooler, cpu))
+        self._add_check(checks, "散热能力", self.check_cooler_thermal_capacity(cooler, cpu))
         if not gpus and self._cpu_has_integrated_graphics(cpu):
             display_outputs = self._motherboard_display_outputs(mb)
             self._add_check(
@@ -658,13 +829,13 @@ def load_components(overlay_paths=None):
     by_id = {}
     for section, items in sections.items():
         for item in items:
-            by_id[item["id"]] = enrich_item(section, item)
+            by_id[item["id"]] = enrich_resolved_item(section, item)
     return by_id, alias_index
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="装机兼容性检查 — 12 类基础兼容性检查")
+        description="装机兼容性检查 — 程序化基础兼容性检查")
     parser.add_argument("--cpu", help="CPU ID")
     parser.add_argument("--mb", help="主板 ID")
     parser.add_argument("--mem", action="append", help="内存 ID (可多次指定)")
