@@ -1,6 +1,6 @@
 ---
 name: pc-build-assistant
-description: 中文市场台式机装机配置助手。用户要按预算和用途选购、升级或评估台式机硬件，询问装机 DIY、配置单、整机推荐、配置补全、搭配检查、兼容性、预算分配或硬件选择原理时使用。覆盖游戏和直播、本地 AI 与内容生产、开发与建模、外观和紧凑主机等场景。支持 Agent 将用户文字或图片中的硬件与报价整理为显式本地 overlay。单独询问软件、游戏、agent 或教程使用方法时不要触发。使用离线配件库和程序化兼容检查，不凭记忆编型号、价格或兼容结论。Use for English desktop PC build planning, upgrades, compatibility checks, hardware selection, and explicit user-supplied local price catalogs. Without a matching user overlay, English answers use China-market CNY references and do not claim local price or availability. Do not use for laptops, server procurement, ordering or payment, remote control, or security isolation.
+description: 中文市场台式机装机配置助手。用户明确在问预算装机、装机 DIY、配电脑或配置单、整机推荐、旧机升级、配置补全、搭配或兼容检查、硬件选购问答、预算分配，并且目标是选购、升级或评估台式机硬件时使用。覆盖游戏和直播、生产力与本地 AI、开发与建模、外观海景房和紧凑或 ITX 主机，并支持按显卡显存与系统内存评估本地模型、由模型需求反推硬件。支持 Agent 将用户文字或图片中的硬件与报价整理为显式本地 overlay。单独询问软件、游戏、agent 或教程使用方法时不要触发。使用离线配件库和程序化兼容检查，不凭记忆编型号、价格或兼容结论。Use for budget desktop PC build planning and recommendations, upgrades, configuration completion, compatibility checks, hardware guidance, local LLM GPU/VRAM/RAM sizing, gaming, streaming, creator, aesthetic, compact or ITX builds, and explicit user-supplied local price catalogs. Without a matching user overlay, English answers use China-market CNY references and do not claim local price or availability. Do not use for laptops, server procurement, ordering or payment, remote control, or security isolation.
 metadata:
   display_name: PC Build Assistant
   tags: pc-build,hardware,chinese-market,compatibility,english

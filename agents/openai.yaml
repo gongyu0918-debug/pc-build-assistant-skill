@@ -1,7 +1,7 @@
 interface:
   display_name: "PC Build Assistant"
-  short_description: "Plan, upgrade, complete, or check a desktop PC build"
-  default_prompt: "Use $pc-build-assistant to plan, upgrade, complete, or check a desktop PC build for my budget and workload, using my explicit local-price overlay when supplied or itemized China-market CNY references otherwise, with compatibility reviewed."
+  short_description: "Plan, recommend, upgrade, or check budget desktop PC builds"
+  default_prompt: "Use $pc-build-assistant to plan, recommend, upgrade, complete, or check a desktop PC build for my budget and workload, using my explicit local-price overlay when supplied or itemized China-market CNY references otherwise, with compatibility reviewed."
 
 policy:
   allow_implicit_invocation: true
