@@ -168,6 +168,11 @@ def _human(result):
                 f"{model['name']} 缺少计算长上下文 KV cache 所需的模型结构字段；"
                 "请先读取该 Hugging Face repo 的官方 config.json，再给显存档结论。"
             )
+        if recommendation.get("recommended_vram_gib") is None:
+            return (
+                f"{model['name']} 在当前量化、上下文和并发条件下超过离线策略覆盖的单卡显存档；"
+                "请缩短上下文、降低并发、使用更小模型，或另行核验多卡/工作站方案。"
+            )
         lines = [
             f"{model['name']}（按 {model['params_b']}B 总参数、{request['quantization']}、{request['context_tokens']} tokens、单并发估算）：",
             f"最低显存档约 {recommendation['minimum_vram_gib']}GB；更稳妥的推荐档为 {recommendation['recommended_vram_gib']}GB，系统内存至少 {recommendation['preferred_ram_gib']}GB。",

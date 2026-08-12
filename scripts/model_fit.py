@@ -174,6 +174,12 @@ def estimate_memory(model: ModelSpec, hardware: HardwareSpec, policy: FitPolicy,
         raise ModelFitError("invalid_quantization", f"不支持的量化档：{quantization}")
     if hardware.vram_gib <= 0:
         raise ModelFitError("invalid_request", "显存必须大于 0")
+    if model.native_context_tokens and context_tokens > model.native_context_tokens:
+        raise ModelFitError(
+            "context_exceeds_model_limit",
+            f"请求上下文 {context_tokens} 超过离线模型配置记录的 {model.native_context_tokens} tokens；"
+            "如使用 YaRN/RoPE 扩展，需先联网核对该模型官方配置后重新估算。",
+        )
     weights = model.params_b * policy.weight_factors[quant]
     runtime = max(policy.base_runtime_gib, hardware.vram_gib * policy.runtime_ratio)
     cache = kv_cache_gib(model, context_tokens, batch_size)
@@ -323,14 +329,14 @@ def reverse_recommendation(model: ModelSpec, catalog: ModelFitCatalog, quantizat
 
     # A 30/32B Q4 model may fit 24 GiB at short context, but the 32 GiB tier
     # is the first stable consumer tier with useful room for cache and runtime.
-    if 29 <= model.params_b <= 35 and quantization == "q4":
+    if 29 <= model.params_b <= 35 and quantization == "q4" and recommended_tier is not None:
         recommended_tier = max(32, recommended_tier or 32)
 
-    preferred_ram = _preferred_ram_for_vram(recommended_tier or policy.vram_tiers[-1], policy)
+    preferred_ram = _preferred_ram_for_vram(recommended_tier, policy) if recommended_tier is not None else None
     # Consumer 30/32B Q4 inference is usually all-GPU on a 32 GiB card; 32 GiB
     # system RAM is the capacity floor, while 64 GiB remains the safer upgrade
     # when long context, offload or several local tools must coexist.
-    if 29 <= model.params_b <= 35 and quantization == "q4" and (recommended_tier or 0) <= 32:
+    if 29 <= model.params_b <= 35 and quantization == "q4" and recommended_tier is not None and recommended_tier <= 32:
         preferred_ram = 32
     return {
         "minimum_vram_gib": minimum_tier,
