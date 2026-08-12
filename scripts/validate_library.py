@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""主库结构校验 — 验证 components.yaml 和 cases.yaml 的基本完整性。
+"""主库结构校验 — 验证配件、机箱和辅助数据的基本完整性。
 
 用法:
   python validate_library.py
@@ -36,6 +36,12 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
+YAML_SUFFIX = "." + "yaml"
+
+
+def _data_path(stem):
+    yaml_path = DATA / f"{stem}{YAML_SUFFIX}"
+    return yaml_path if yaml_path.exists() else DATA / f"{stem}.txt"
 
 REQUIRED_SECTIONS = ["cpus", "motherboards", "memory", "storage", "gpus", "coolers", "psus", "fans"]
 
@@ -117,6 +123,7 @@ VALID_GPU_MEMORY_TYPES = {
     "HBM2", "HBM2E", "HBM3", "HBM3E",
 }
 VALID_AIR_COOLER_LAYOUTS = {"low_profile", "down_draft", "single_tower", "dual_tower"}
+MODEL_FIT_QUANTIZATIONS = {"q4", "q5", "q8", "bf16"}
 
 
 def _parse_int(value, default=0):
@@ -572,9 +579,9 @@ def _optional_dataset_warning(label, field, missing_items, total):
 
 def _validate_displays():
     state = ValidationResult()
-    displays_path = DATA / "displays.yaml"
+    displays_path = _data_path("displays")
     if not displays_path.exists():
-        state.notes.append("displays.yaml: optional explicit monitor database missing")
+        state.notes.append("display catalog: optional explicit monitor database missing")
         return state
 
     with displays_path.open("r", encoding="utf-8") as file:
@@ -645,16 +652,16 @@ def _valid_fps_range(value):
 
 def _validate_game_fps():
     state = ValidationResult()
-    game_fps_path = DATA / "game_fps.yaml"
+    game_fps_path = _data_path("game_fps")
     if not game_fps_path.exists():
-        state.errors.append("game_fps.yaml: missing game FPS reference table")
+        state.errors.append("game FPS catalog: missing game FPS reference table")
         return state
 
     with game_fps_path.open("r", encoding="utf-8") as file:
         game_fps = yaml.safe_load(file) or {}
     game_ids = {game.get("id") for game in game_fps.get("games", []) if game.get("id")}
     if not game_ids:
-        state.errors.append("game_fps.yaml: no games")
+        state.errors.append("game FPS catalog: no games")
     required_fps_fields = {
         "game", "resolution", "preset", "cpu", "gpu", "avg_fps",
         "confidence", "source_title", "source_date", "source_type",
@@ -674,6 +681,67 @@ def _validate_game_fps():
             if field_name in row and not _valid_fps_range(row.get(field_name)):
                 state.errors.append(f"{prefix}: invalid {field_name}={row.get(field_name)}")
     state.counts["game_fps_samples"] = len(game_fps.get("benchmarks", []))
+    return state
+
+
+def _validate_model_fit():
+    state = ValidationResult()
+    model_fit_path = _data_path("model_fit")
+    if not model_fit_path.exists():
+        state.errors.append("model-fit catalog: missing local LLM hardware-fit policy")
+        return state
+    try:
+        with model_fit_path.open("r", encoding="utf-8") as file:
+            document = yaml.safe_load(file) or {}
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        state.errors.append(f"model-fit catalog: cannot load: {exc}")
+        return state
+    policy = document.get("policy")
+    models = document.get("models")
+    if not isinstance(policy, dict) or not isinstance(models, list) or not models:
+        state.errors.append("model-fit catalog: policy and non-empty models are required")
+        return state
+    weight_factors = policy.get("weight_gib_per_billion_params")
+    if not isinstance(weight_factors, dict) or set(weight_factors) != MODEL_FIT_QUANTIZATIONS:
+        state.errors.append("model-fit catalog: weight factors must be q4/q5/q8/bf16")
+    elif any(not isinstance(value, (int, float)) or value <= 0 for value in weight_factors.values()):
+        state.errors.append("model-fit catalog: weight factors must be positive numbers")
+    vram_tiers = policy.get("vram_tiers_gib")
+    if not isinstance(vram_tiers, list) or vram_tiers != sorted(set(vram_tiers)) or any(value <= 0 for value in vram_tiers):
+        state.errors.append("model-fit catalog: vram tiers must be unique ascending positive numbers")
+    for ratio_field in ("recommended_vram_utilization", "conditional_vram_utilization"):
+        value = policy.get(ratio_field)
+        if not isinstance(value, (int, float)) or not 0 < value < 1:
+            state.errors.append(f"model-fit catalog: invalid {ratio_field}")
+    if (
+        isinstance(policy.get("recommended_vram_utilization"), (int, float))
+        and isinstance(policy.get("conditional_vram_utilization"), (int, float))
+        and policy["recommended_vram_utilization"] >= policy["conditional_vram_utilization"]
+    ):
+        state.errors.append("model-fit catalog: recommended utilization must be below conditional utilization")
+    seen = set()
+    required = {"id", "name", "params_b", "hf_repo", "default_quantization", "default_context_tokens"}
+    for index, model in enumerate(models, start=1):
+        prefix = f"model_fit.models[{index}]"
+        if not isinstance(model, dict):
+            state.errors.append(f"{prefix}: must be mapping")
+            continue
+        missing = required - set(model)
+        if missing:
+            state.errors.append(f"{prefix}: missing fields {missing}")
+        model_id = model.get("id")
+        if model_id in seen:
+            state.errors.append(f"{prefix}: duplicate id {model_id}")
+        seen.add(model_id)
+        if not isinstance(model.get("params_b"), (int, float)) or model.get("params_b", 0) <= 0:
+            state.errors.append(f"{prefix}: params_b must be positive")
+        if model.get("default_quantization") not in MODEL_FIT_QUANTIZATIONS:
+            state.errors.append(f"{prefix}: invalid default_quantization")
+        if not isinstance(model.get("default_context_tokens"), int) or model.get("default_context_tokens", 0) <= 0:
+            state.errors.append(f"{prefix}: default_context_tokens must be positive integer")
+        if model.get("active_params_b") is not None and model.get("active_params_b", 0) >= model.get("params_b", 0):
+            state.errors.append(f"{prefix}: active_params_b must be below total params_b")
+    state.counts["model_fit_samples"] = len(models)
     return state
 
 
@@ -759,7 +827,7 @@ def _report_validation(lib, case_items, state):
 
 
 def main():
-    comp_path = DATA / "components.yaml"
+    comp_path = _data_path("components")
     if not comp_path.exists():
         print(f"FAIL: {comp_path} not found")
         return 1
@@ -769,7 +837,7 @@ def main():
 
     component_result = _validate_component_sections(lib)
 
-    cases_path = DATA / "cases.yaml"
+    cases_path = _data_path("cases")
     if not cases_path.exists():
         print(f"FAIL: {cases_path} not found")
         return 1
@@ -780,11 +848,13 @@ def main():
     case_items, case_result = _validate_cases(cases)
     display_result = _validate_displays()
     fps_result = _validate_game_fps()
+    model_fit_result = _validate_model_fit()
     state = _combine_validation_results(
         component_result,
         case_result,
         display_result,
         fps_result,
+        model_fit_result,
     )
     return _report_validation(lib, case_items, state)
 

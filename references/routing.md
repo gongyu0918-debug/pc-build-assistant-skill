@@ -27,6 +27,7 @@
 | 三角洲 / 吃鸡 / CS2 / GO / 瓦 | 热门 FPS / 电竞网游，高帧和 1% low 优先 | routing=fps, cpu_priority=x3d |
 | 直播 / 推流 / OBS / 录制 | 需要硬件编码和稳定后台 | routing=streaming, cpu_priority=intel_igpu |
 | 为本地 AI 编程/终端 agent 工作流配电脑 / 给 Codex、Claude Code、opencode、OpenClaw、Hermes 配电脑 / 多 agent 并发主机 | 本地终端/IDE agent、项目索引、缓存、测试工具链和可能的本地模型带来的硬件负载 | routing=local_agent, priority=ram_ssd_cpu |
+| 16G/24G/32G/96G 显存能跑多大模型 / 30B、32B、70B 要什么显卡 | 双向估算本地文本模型、显存和系统内存容量；区分最低可试与稳妥推荐 | read=local-model-fit.md, run=query_model_fit.py |
 | ComfyUI / SD / Stable Diffusion / 文生图 / 文生视频 | 本地生成式 AI，吃 NVIDIA CUDA、显存、SSD 和内存 | routing=local_ai_image_video, gpu_priority=nvidia_vram |
 | PS / Photoshop / Lightroom / 修图 / 摄影后期 | 图片后期，CPU/内存/SSD 优先，中端显卡足够 | routing=photo_editing |
 | PR / Premiere / 剪辑 / 视频剪辑 / 达芬奇 / DaVinci | 视频剪辑/调色，按分辨率、编码、特效和显存分流 | routing=video_editing |

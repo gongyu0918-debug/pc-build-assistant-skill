@@ -23,6 +23,7 @@ Read this file when the user's request is primarily in English or explicitly ask
 - In a complete build, turn every scenario-required item with an available catalog candidate into a priced row. Do not leave a queryable required item as an unpriced budget reserve.
 - For an upgrade, configuration completion, or compatibility review, read `workflows.md` plus only the scenario, pricing, selection, and compatibility references needed for that request.
 - For a hardware-selection question, read the relevant section of `hardware-faq.md`. Query exact products only when the question requires models or prices.
+- For local LLM sizing in either direction (hardware to model, or model parameter count to GPU/RAM), read `local-model-fit.md` and use the same estimator. Translate only its structured result; keep minimum-versus-recommended VRAM, quantization, context, offload, and estimate caveats intact.
 - This routing is procedural. Do not restate or maintain a second copy of the Chinese selection rules here.
 
 ## Scope
