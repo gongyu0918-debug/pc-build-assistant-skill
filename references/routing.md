@@ -26,6 +26,8 @@
 | Intel 还是 AMD / 办公选什么 / 内存要多大 / 风冷能不能压 / 电源要多大 | 硬件选择或原理问答 | routing=hardware_qa, mode=reference |
 | 三角洲 / 吃鸡 / CS2 / GO / 瓦 | 热门 FPS / 电竞网游，高帧和 1% low 优先 | routing=fps, cpu_priority=x3d |
 | 直播 / 推流 / OBS / 录制 | 需要硬件编码和稳定后台 | routing=streaming, cpu_priority=intel_igpu |
+| 内置采集卡 / PCIe 声卡网卡 / 扩展卡 | 独显之外还需物理扩展槽，并复核显卡厚度、槽间距和通道共享 | query_mb=--min-pcie-slots 2, check=--require-extra-pcie-slot |
+| 必须有 USB4 / 雷电口 | 只接受精确型号已核实的后置端口；USB-C 或雷电针脚不能替代 | query_mb=--require-usb4/--require-thunderbolt |
 | 为本地 AI 编程/终端 agent 工作流配电脑 / 给 Codex、Claude Code、opencode、OpenClaw、Hermes 配电脑 / 多 agent 并发主机 | 本地终端/IDE agent、项目索引、缓存、测试工具链和可能的本地模型带来的硬件负载 | routing=local_agent, priority=ram_ssd_cpu |
 | 16G/24G/32G/96G 显存能跑多大模型 / 30B、32B、70B 要什么显卡 | 双向估算本地文本模型、显存和系统内存容量；区分最低可试与稳妥推荐 | read=local-model-fit.md, run=query_model_fit.py |
 | ComfyUI / SD / Stable Diffusion / 文生图 / 文生视频 | 本地生成式 AI，吃 NVIDIA CUDA、显存、SSD 和内存 | routing=local_ai_image_video, gpu_priority=nvidia_vram |

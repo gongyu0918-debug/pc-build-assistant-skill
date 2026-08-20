@@ -47,6 +47,11 @@ from catalog_overlay import (
     resolve_catalog,
     resolve_id,
 )
+from motherboard_capabilities import (
+    pcie_physical_slot_count,
+    verified_thunderbolt_ports,
+    verified_usb4_ports,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -460,6 +465,12 @@ class CompatibilityChecker:
         if sata_count > sata_ports:
             return {"type": "error",
                 "msg": f"SATA设备【{sata_count}个】超过主板SATA口【{sata_ports}个】"}
+        conditions = mb.get("sata_port_conditions") or []
+        if conditions:
+            return {
+                "type": "msg",
+                "msg": "SATA接口数量足够，但启用条件需复核: " + "；".join(conditions),
+            }
         return {"type": "success", "msg": "SATA接口数量充足"}
 
     def check_psu_power(self, psu, cpu, gpu_list, extra_w=DEFAULT_NON_CORE_POWER_W):
@@ -701,8 +712,86 @@ class CompatibilityChecker:
                     }))
         return checks
 
-    def _compatibility_checks(self, cpu, mb, mem, storage, gpus, psu, cooler, case):
+    def check_extra_pcie_slot(self, mb, gpus):
+        """Check an explicit PCIe add-in-card requirement without guessing GPU width."""
+        if not mb:
+            return None
+        slot_count = pcie_physical_slot_count(mb)
+        if slot_count is None:
+            return {
+                "type": "msg",
+                "msg": "主板物理PCIe插槽布局未核实，不能确认独显之外还能安装采集卡或扩展卡",
+            }
+        needed = len(gpus) + 1
+        if slot_count < needed:
+            return {
+                "type": "error",
+                "msg": f"扩展卡需求至少需要{needed}个物理PCIe插槽，主板仅核实{slot_count}个",
+            }
+        if not gpus:
+            return {
+                "type": "success",
+                "msg": f"主板已核实{slot_count}个物理PCIe插槽，可安装一张扩展卡",
+            }
+        sharing = sorted({
+            resource
+            for slot in mb.get("pcie_slot_layout", [])
+            for resource in slot.get("shares_with", [])
+        })
+        suffix = f"；另需核对与{','.join(sharing)}的共享条件" if sharing else ""
+        return {
+            "type": "msg",
+            "msg": (
+                f"主板已核实{slot_count}个物理PCIe插槽，但独显厚度和槽间距可能遮挡扩展槽；"
+                f"需按显卡槽厚与采集卡位置复核{suffix}"
+            ),
+        }
+
+    def check_required_usb4(self, mb):
+        if not mb:
+            return None
+        ports = verified_usb4_ports(mb)
+        if ports:
+            conditions = mb.get("usb4_disable_conditions") or []
+            sharing = mb.get("usb4_shares_with") or []
+            if conditions or sharing:
+                details = list(conditions)
+                if sharing:
+                    details.append("与" + "/".join(sharing) + "共享带宽")
+                return {
+                    "type": "msg",
+                    "msg": f"主板有{ports}个已核实后置USB4端口，但存在条件：{'；'.join(details)}",
+                }
+            return {"type": "success", "msg": f"主板有{ports}个已核实后置USB4端口"}
+        if mb.get("usb4_status") == "none_verified":
+            return {"type": "error", "msg": "主板官方后置I/O已核实未提供USB4端口"}
+        return {"type": "msg", "msg": "主板USB4能力尚未核实，不能满足明确USB4需求"}
+
+    def check_required_thunderbolt(self, mb):
+        if not mb:
+            return None
+        ports = verified_thunderbolt_ports(mb)
+        if ports:
+            version = mb.get("thunderbolt_version")
+            return {
+                "type": "success",
+                "msg": f"主板有{ports}个已核实后置Thunderbolt {version}端口",
+            }
+        status = mb.get("thunderbolt_status")
+        if status == "header_only":
+            return {
+                "type": "error",
+                "msg": "主板仅有雷电扩展针脚，没有已核实后置雷电端口，不能直接满足雷电口需求",
+            }
+        if status == "none_verified":
+            return {"type": "error", "msg": "主板官方后置I/O已核实未提供雷电端口"}
+        return {"type": "msg", "msg": "主板雷电能力尚未核实，不能满足明确雷电需求"}
+
+    def _compatibility_checks(
+        self, cpu, mb, mem, storage, gpus, psu, cooler, case, requirements=None
+    ):
         checks = []
+        requirements = requirements or {}
         self._add_check(checks, "CPU↔主板", self.check_cpu_motherboard(cpu, mb))
         self._add_check(checks, "散热↔CPU", self.check_cooler_cpu(cooler, cpu))
         self._add_check(checks, "散热能力", self.check_cooler_thermal_capacity(cooler, cpu))
@@ -758,6 +847,17 @@ class CompatibilityChecker:
         self._add_check(checks, "散热↔机箱", self.check_cooler_case(cooler, case))
         self._add_check(checks, "机箱↔主板", self.check_case_motherboard(case, mb))
         self._add_check(checks, "机箱↔电源", self.check_case_psu(case, psu), "未检查机箱电源尺寸")
+        if requirements.get("extra_pcie_slot"):
+            self._add_check(
+                checks,
+                "扩展卡槽位",
+                self.check_extra_pcie_slot(mb, gpus),
+                "未检查采集卡或扩展卡槽位",
+            )
+        if requirements.get("usb4"):
+            self._add_check(checks, "USB4需求", self.check_required_usb4(mb))
+        if requirements.get("thunderbolt"):
+            self._add_check(checks, "雷电需求", self.check_required_thunderbolt(mb))
         return checks
 
     def _summarize_checks(self, checks):
@@ -793,7 +893,7 @@ class CompatibilityChecker:
             "severity": severity,
         }
 
-    def check_all(self, build, strict=False, missing_ids=None):
+    def check_all(self, build, strict=False, missing_ids=None, requirements=None):
         """检查完整配置的兼容性。
 
         Args:
@@ -817,7 +917,7 @@ class CompatibilityChecker:
             cpu, mb, mem, storage, gpus, psu, cooler, case, strict, missing_ids
         )
         compatibility = self._compatibility_checks(
-            cpu, mb, mem, storage, gpus, psu, cooler, case
+            cpu, mb, mem, storage, gpus, psu, cooler, case, requirements
         )
         return self._summarize_checks(completeness + compatibility)
 
@@ -850,6 +950,21 @@ def main():
         "--require-complete",
         action="store_true",
         help="完整度门禁: 有警告、待复核信息或需复核的跳过项时返回退出码2",
+    )
+    parser.add_argument(
+        "--require-extra-pcie-slot",
+        action="store_true",
+        help="明确需要内置采集卡/声卡/网卡等PCIe扩展卡；独显厚度和槽间距会进入复核",
+    )
+    parser.add_argument(
+        "--require-usb4",
+        action="store_true",
+        help="明确要求已核实的后置USB4端口；普通USB-C和未知能力不算满足",
+    )
+    parser.add_argument(
+        "--require-thunderbolt",
+        action="store_true",
+        help="明确要求已核实的后置雷电端口；扩展针脚不算满足",
     )
     parser.add_argument("--json", action="store_true", help="输出 JSON 格式")
     args = parser.parse_args()
@@ -894,7 +1009,16 @@ def main():
     }
 
     checker = CompatibilityChecker()
-    result = checker.check_all(build, strict=args.strict, missing_ids=missing_ids)
+    result = checker.check_all(
+        build,
+        strict=args.strict,
+        missing_ids=missing_ids,
+        requirements={
+            "extra_pcie_slot": args.require_extra_pcie_slot,
+            "usb4": args.require_usb4,
+            "thunderbolt": args.require_thunderbolt,
+        },
+    )
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

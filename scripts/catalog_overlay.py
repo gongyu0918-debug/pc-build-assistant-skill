@@ -17,10 +17,17 @@ import yaml
 from component_inference import (
     USER_CONFIRMED_SPEC_FIELDS,
     enrich_item,
+    infer_cpu_integrated_graphics,
     infer_storage_form_factor,
     normalize_explicit_storage_form_factor,
     storage_interface_form_factor_consistent,
     storage_model_form_factor_consistent,
+)
+from motherboard_capabilities import (
+    THUNDERBOLT_STATUSES,
+    USB4_STATUSES,
+    validate_motherboard_capabilities,
+    validate_pcie_slot_layout,
 )
 
 
@@ -54,7 +61,11 @@ CATEGORY_CONTRACTS = {
         "platform", "socket", "power_w", "integrated_graphics", "cores_threads", "cores", "threads")),
     "mb": CategoryContract("motherboards", ("socket", "memory_generations", "form_factor"), _fields(
         "platform", "socket", "chipset", "memory_generations", "memory_slots", "memory_freq_max",
-        "memory_max_gb", "m2_slots", "sata_ports", "display_outputs", "form_factor", "color")),
+        "memory_max_gb", "m2_slots", "sata_ports", "display_outputs", "form_factor", "color",
+        "pcie_slot_layout", "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
+        "usb4_shares_with", "usb4_disable_conditions", "thunderbolt_status",
+        "thunderbolt_rear_ports", "thunderbolt_version", "thunderbolt_header",
+        "sata_port_conditions")),
     "memory": CategoryContract("memory", ("generation", "capacity_gb", "module_count"), _fields(
         "generation", "capacity_gb", "module_count", "frequency_mt", "timing", "color", "rgb")),
     "storage": CategoryContract("storage", ("interface", "capacity_gb"), _fields(
@@ -113,10 +124,12 @@ FIELD_CONTRACTS = {
     )},
     **{name: FieldContract("boolean") for name in (
         "integrated_graphics", "rgb", "dram_cache", "gpu_radiator_required", "requires_16pin_psu", "modular",
-        "native_16pin_gpu_power", "has_dust_filter", "is_showcase", "is_linkable", "has_screen", "default_recommend")},
+        "native_16pin_gpu_power", "has_dust_filter", "is_showcase", "is_linkable", "has_screen", "default_recommend",
+        "thunderbolt_header")},
     **{name: FieldContract("string_list", pattern=NON_BLANK_PATTERN) for name in (
         "memory_generations", "colors", "socket_support",
-        "motherboard_support", "psu_support")},
+        "motherboard_support", "psu_support", "usb4_shares_with",
+        "usb4_disable_conditions", "sata_port_conditions")},
     "display_outputs": FieldContract(
         "string_list", pattern=DISPLAY_OUTPUT_SCHEMA_PATTERN
     ),
@@ -130,6 +143,15 @@ FIELD_CONTRACTS = {
         pattern=NON_BLANK_PATTERN,
     ),
     "heatpipe_count": FieldContract("integer", minimum=1, maximum=16),
+    "pcie_slot_layout": FieldContract("pcie_slot_list"),
+    "usb4_status": FieldContract("string", choices=tuple(sorted(USB4_STATUSES)), pattern=NON_BLANK_PATTERN),
+    "thunderbolt_status": FieldContract(
+        "string", choices=tuple(sorted(THUNDERBOLT_STATUSES)), pattern=NON_BLANK_PATTERN
+    ),
+    "usb4_rear_ports": FieldContract("integer", minimum=0, maximum=8),
+    "usb4_speed_gbps": FieldContract("integer", minimum=20, maximum=120),
+    "thunderbolt_rear_ports": FieldContract("integer", minimum=0, maximum=8),
+    "thunderbolt_version": FieldContract("integer", minimum=3, maximum=5),
 }
 
 
@@ -258,6 +280,8 @@ def _validate_spec_value(field, value, path):
                 for x in value
             )
         )
+    elif contract.kind == "pcie_slot_list":
+        valid = not validate_pcie_slot_layout(value)
     else:
         valid = False
     if not valid:
@@ -315,6 +339,25 @@ def validate_overlay(doc):
         _keys(specs, CATEGORY_CONTRACTS[category].specs, p + ".specs")
         for field, value in specs.items():
             _validate_spec_value(field, value, p + f".specs.{field}")
+        if category == "cpu" and specs.get("integrated_graphics") is True:
+            model_fact = infer_cpu_integrated_graphics({
+                "brand": component["brand"],
+                "model": component["model"],
+            })
+            if model_fact is False:
+                raise OverlayError(
+                    "spec_conflict",
+                    "integrated_graphics=true conflicts with a CPU model whose F/KF suffix disables integrated graphics",
+                    p + ".specs.integrated_graphics",
+                )
+        if category == "mb":
+            capability_errors = validate_motherboard_capabilities(specs)
+            if capability_errors:
+                raise OverlayError(
+                    "invalid_spec",
+                    "; ".join(capability_errors),
+                    p + ".specs",
+                )
         if (
             category == "storage"
             and "form_factor" in specs
@@ -819,6 +862,14 @@ def resolve_catalog_documents(sections, documents, *, data_dir, normalize_names=
             gpu_power_evidence = component["category"] != "gpu" or _has_gpu_power_evidence(item)
             item = normalize_item_names(item, alias_data, component["category"])
             item = enrich_item(CATEGORY_SECTIONS[component["category"]], item)
+            if component["category"] == "mb":
+                capability_errors = validate_motherboard_capabilities(item)
+                if capability_errors:
+                    raise OverlayError(
+                        "invalid_spec",
+                        "; ".join(capability_errors),
+                        f"$.components[{component_index}].specs",
+                    )
             if (
                 component["category"] == "storage"
                 and storage_interface_form_factor_consistent(

@@ -45,6 +45,11 @@ from catalog_overlay import (
     resolve_catalog,
     resolve_id,
 )
+from motherboard_capabilities import (
+    pcie_physical_slot_count,
+    verified_thunderbolt_ports,
+    verified_usb4_ports,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -116,12 +121,19 @@ class QuerySpec:
     dram_cache: bool | None = None
     integrated_graphics: bool | None = None
     display_output: str | None = None
+    min_pcie_slots: int | None = None
+    require_usb4: bool = False
+    require_thunderbolt: bool = False
 
 DEDUPE_SPEC_FIELDS = {
     "cpu": ("socket", "power_w", "integrated_graphics"),
     "mb": (
         "socket", "memory_generations", "form_factor", "memory_slots",
-        "memory_freq_max", "m2_slots", "sata_ports", "display_outputs",
+        "memory_max_gb", "memory_freq_max", "m2_slots", "sata_ports", "display_outputs",
+        "pcie_slot_layout", "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
+        "usb4_shares_with", "usb4_disable_conditions", "thunderbolt_status",
+        "thunderbolt_rear_ports", "thunderbolt_version", "thunderbolt_header",
+        "sata_port_conditions",
     ),
     "memory": ("generation", "capacity_gb", "module_count", "frequency_mt", "timing", "color", "rgb"),
     "storage": ("capacity_gb", "capacity_tb", "interface", "pcie_generation", "form_factor", "dram_cache"),
@@ -169,7 +181,12 @@ SUMMARY_FIELDS_BY_CATEGORY = {
     ],
     "mb": SUMMARY_BASE_FIELDS + [
         "platform", "socket", "chipset", "memory_generations", "memory_slots",
-        "memory_freq_max", "m2_slots", "sata_ports", "display_outputs", "form_factor", "color",
+        "memory_max_gb", "memory_freq_max", "m2_slots", "sata_ports", "sata_port_conditions",
+        "display_outputs", "form_factor", "color",
+        "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
+        "usb4_shares_with", "usb4_disable_conditions",
+        "thunderbolt_status", "thunderbolt_rear_ports", "thunderbolt_version",
+        "thunderbolt_header",
     ],
     "memory": SUMMARY_BASE_FIELDS + [
         "generation", "capacity_gb", "module_count", "frequency_mt", "timing", "color", "rgb",
@@ -1042,6 +1059,19 @@ def _matches_display_output(item, requested):
     return bool(wanted and wanted in outputs)
 
 
+def _matches_motherboard_capabilities(item, spec):
+    """Fail closed for explicit motherboard capability requirements."""
+    if spec.min_pcie_slots is not None:
+        count = pcie_physical_slot_count(item)
+        if count is None or count < spec.min_pcie_slots:
+            return False
+    if spec.require_usb4 and verified_usb4_ports(item) <= 0:
+        return False
+    if spec.require_thunderbolt and verified_thunderbolt_ports(item) <= 0:
+        return False
+    return True
+
+
 def _normalize_form_factor(ff):
     text = compact_text(ff)
     mapping = {"MICROATX": "MATX", "M-ATX": "MATX", "MINIITX": "ITX"}
@@ -1536,6 +1566,8 @@ def _query_core_components(spec):
                 continue
             if sec == "motherboards" and spec.display_output and not _matches_display_output(item, spec.display_output):
                 continue
+            if sec == "motherboards" and not _matches_motherboard_capabilities(item, spec):
+                continue
             if spec.memory_gen and not _matches_memory_gen(sec, item, spec.memory_gen):
                 continue
             if spec.form_factor and not _matches_form_factor(sec, item, spec.form_factor):
@@ -1589,7 +1621,8 @@ def query(category=None, budget=None, platform=None, color=None,
           fan_size=None, blade_direction=None, linkable=None, screen=None,
           radiator_bundle=None, fan_type=None, model=None, item_id=None,
           max_capacity=None, pcie_generation=None, dram_cache=None,
-          integrated_graphics=None, display_output=None):
+          integrated_graphics=None, display_output=None, min_pcie_slots=None,
+          require_usb4=False, require_thunderbolt=False):
     """查询配件。返回匹配的配件列表。"""
     spec = QuerySpec(
         category=category,
@@ -1630,6 +1663,9 @@ def query(category=None, budget=None, platform=None, color=None,
         dram_cache=dram_cache,
         integrated_graphics=integrated_graphics,
         display_output=display_output,
+        min_pcie_slots=min_pcie_slots,
+        require_usb4=require_usb4,
+        require_thunderbolt=require_thunderbolt,
     )
     if category == "case":
         return _query_cases(spec)
@@ -1893,7 +1929,8 @@ def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
               gpu_cooling="air", gpu_chip=None, min_vram=None, min_capacity=None,
               include_workstation_gpu=False, showcase=None, air_flow=None, dust_filter=None,
               model=None, item_id=None, max_capacity=None, integrated_graphics=None,
-              display_output=None):
+              display_output=None, min_pcie_slots=None, require_usb4=False,
+              require_thunderbolt=False):
     """Return core PC candidates grouped by category for smoke/progressive disclosure."""
     grouped = {}
     for category in CORE_CATEGORIES:
@@ -1922,6 +1959,9 @@ def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
             include_workstation_gpu=include_workstation_gpu,
             integrated_graphics=integrated_graphics if category == "cpu" else None,
             display_output=display_output if category == "mb" else None,
+            min_pcie_slots=min_pcie_slots if category == "mb" else None,
+            require_usb4=require_usb4 if category == "mb" else False,
+            require_thunderbolt=require_thunderbolt if category == "mb" else False,
             showcase=showcase if category == "case" else None,
             air_flow=air_flow if category == "case" else None,
             dust_filter=dust_filter if category == "case" else None,
@@ -1970,6 +2010,10 @@ def summarize(item, category=None):
     if category == "gpu" and infer_gpu_cooling(item) == "liquid":
         summary["gpu_cooling"] = "liquid"
         summary["gpu_radiator_required"] = True
+    if category == "mb":
+        slot_count = pcie_physical_slot_count(item)
+        if slot_count is not None:
+            summary["pcie_physical_slots"] = slot_count
     return summary
 
 
@@ -1985,6 +2029,13 @@ def display_extra(category, item):
         parts = [f"chipset={item.get('chipset')}"]
         if item.get("display_outputs"):
             parts.append("display=" + "/".join(str(value) for value in item.get("display_outputs")))
+        slot_count = pcie_physical_slot_count(item)
+        if slot_count is not None:
+            parts.append(f"PCIe-slots={slot_count}")
+        if verified_usb4_ports(item):
+            parts.append(f"USB4={verified_usb4_ports(item)}")
+        if verified_thunderbolt_ports(item):
+            parts.append(f"TB{item.get('thunderbolt_version')}={verified_thunderbolt_ports(item)}")
         return " ".join(parts)
     if category == "gpu" and item.get("chip"):
         parts = [f"chip={item.get('chip')}"]
@@ -2090,6 +2141,21 @@ def _build_parser():
         choices=["any", "HDMI", "DisplayPort", "DP", "VGA", "D-Sub", "DVI", "USB-C", "Thunderbolt"],
         help="主板已核实视频输出过滤（any/HDMI/DisplayPort/VGA）；无独显整机至少使用 any",
     )
+    parser.add_argument(
+        "--min-pcie-slots",
+        type=int,
+        help="主板已核实物理 PCIe 插槽下限；独显加采集卡/扩展卡时通常至少为 2",
+    )
+    parser.add_argument(
+        "--require-usb4",
+        action="store_true",
+        help="只返回已核实具有后置 USB4 能力的主板；普通 USB-C 不会命中",
+    )
+    parser.add_argument(
+        "--require-thunderbolt",
+        action="store_true",
+        help="只返回已核实具有后置雷电端口的主板；扩展针脚不会命中",
+    )
     parser.add_argument("--socket", help="CPU/主板 socket 过滤 (LGA1700/AM5/LGA1851)")
     parser.add_argument("--chipset", help="主板芯片组过滤 (B760/B850/X870/Z890 等)")
     parser.add_argument("--memory-gen", help="内存代际过滤 (DDR4/DDR5)，作用于主板和内存")
@@ -2152,7 +2218,7 @@ def _build_parser():
 def _validate_cli_args(parser, args):
     for name in (
         "budget", "max_length", "max_cooler_height", "min_vram", "min_capacity", "max_capacity",
-        "fan_size", "radiator_bundle", "min_refresh", "limit",
+        "fan_size", "radiator_bundle", "min_refresh", "min_pcie_slots", "limit",
     ):
         value = getattr(args, name)
         if value is not None and value <= 0:
@@ -2165,6 +2231,12 @@ def _validate_cli_args(parser, args):
         parser.error("--min-capacity cannot exceed --max-capacity")
     if args.max_cooler_height is not None and args.category != "cooler":
         parser.error("--max-cooler-height requires --category cooler")
+    if (
+        args.min_pcie_slots is not None
+        or args.require_usb4
+        or args.require_thunderbolt
+    ) and args.category not in ("mb", "all"):
+        parser.error("motherboard capability filters require --category mb or all")
 
 
 def _optional_bool(value):
@@ -2202,6 +2274,9 @@ def _run_grouped_query(args):
         dust_filter=_optional_bool(args.dust_filter),
         integrated_graphics=_optional_bool(args.integrated_graphics),
         display_output=args.display_output,
+        min_pcie_slots=args.min_pcie_slots,
+        require_usb4=args.require_usb4,
+        require_thunderbolt=args.require_thunderbolt,
     )
 
 
@@ -2244,6 +2319,9 @@ def _run_single_query(args):
         fan_type=args.fan_type if args.category == "fan" else None,
         integrated_graphics=_optional_bool(args.integrated_graphics) if args.category == "cpu" else None,
         display_output=args.display_output if args.category == "mb" else None,
+        min_pcie_slots=args.min_pcie_slots if args.category == "mb" else None,
+        require_usb4=args.require_usb4 if args.category == "mb" else False,
+        require_thunderbolt=args.require_thunderbolt if args.category == "mb" else False,
     )
 
 

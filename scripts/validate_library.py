@@ -27,6 +27,7 @@ from component_inference import (
     infer_storage_form_factor,
     normalize_display_outputs,
 )
+from motherboard_capabilities import validate_motherboard_capabilities
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -88,7 +89,10 @@ OBVIOUS_MODEL_TYPO_RE = re.compile(
 
 COVERAGE_FIELDS = {
     "gpus": ["length_mm", "requires_16pin_psu"],
-    "motherboards": ["m2_slots", "sata_ports", "memory_freq_max", "display_outputs"],
+    "motherboards": [
+        "m2_slots", "sata_ports", "memory_freq_max", "display_outputs",
+        "pcie_slot_layout", "usb4_status", "thunderbolt_status",
+    ],
     "memory": ["timing"],
     "storage": ["pcie_generation", "dram_cache", "dram_cache_mb"],
     "coolers": [
@@ -418,6 +422,9 @@ def _validate_component_item(section, item, required):
         outputs = item.get("display_outputs")
         if not normalize_display_outputs(outputs):
             state.errors.append(f"{section}.{item_id}: invalid display_outputs={outputs}")
+    if section == "motherboards":
+        for error in validate_motherboard_capabilities(item):
+            state.errors.append(f"{section}.{item_id}: {error}")
     if section == "psus" and item.get("length_mm") not in (None, ""):
         length_mm = item.get("length_mm")
         if isinstance(length_mm, bool) or not isinstance(length_mm, int) or not 80 <= length_mm <= 300:

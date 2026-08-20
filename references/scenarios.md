@@ -65,6 +65,8 @@
 
 - 直播推流优先 Intel 带核显 + NVIDIA 显卡，兼顾 Quick Sync 和 NVENC。
 - 若用户主玩游戏且预算有限，可在 Intel 带核显和 AMD X3D 之间说明取舍：Intel 偏推流/生产力便利，X3D 偏高帧游戏。
+- 单纯用 OBS/NVENC/Quick Sync 直播不要求第二个 PCIe 插槽。只有用户明确使用内置 PCIe 采集卡、声卡、网卡或其他扩展卡时，主板候选才加 `--min-pcie-slots 2`，整机检查追加 `--require-extra-pcie-slot`；即使核实有第二槽，也要提示独显厚度、槽间距和 M.2/PCIe 通道共享可能让该槽不可用。USB 采集卡不套用内置 PCIe 槽规则，但要复核接口带宽。
+- 用户明确要求 USB4 或雷电时，主板查询必须使用对应已核实过滤；普通 USB-C 不等于 USB4，雷电扩展针脚也不等于后置雷电口。字段未知时不得写成满足。
 
 ## 热门 FPS / 电竞网游
 

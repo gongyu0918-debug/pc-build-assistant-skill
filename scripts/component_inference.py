@@ -73,6 +73,18 @@ INTEL_UNLOCKED_CPU_PATTERN = re.compile(
     r"(?<![A-Z0-9])(?:INTEL\s+)?(?:CORE\s+)?I[579][ -]?(12600|12700|12900|13600|13700|13900|14600|14700|14900)(?:K|KF|KS)(?![A-Z0-9])",
     re.IGNORECASE,
 )
+# Combined storefront titles such as ``14400K/KF`` and ``7500X/F`` are
+# ambiguous physical SKUs.  If any listed alternative is an F/KF variant, the
+# title cannot prove that an iGPU is present and must stay out of no-GPU builds.
+CPU_NO_IGPU_ALTERNATIVE_PATTERN = re.compile(
+    r"(?<![A-Z0-9])\d{3,5}(?:[A-Z0-9]\s*)*(?:[/|、]|OR|或)\s*"
+    r"(?:\d{3,5}\s*)?(?:[A-Z]\s*)*F(?=$|[^A-Z0-9])",
+    re.IGNORECASE,
+)
+CPU_NO_IGPU_SUFFIX_PATTERN = re.compile(
+    r"(?<![A-Z0-9])\d{3,5}\s*(?:[KX]\s*)?F(?=$|[^A-Z0-9])",
+    re.IGNORECASE,
+)
 # Intel Maximum Turbo Power values used as conservative runtime floors when a
 # market snapshot has accidentally copied the lower Processor Base Power.
 INTEL_UNLOCKED_CPU_POWER_FLOORS_W = {
@@ -187,22 +199,23 @@ def infer_cpu_integrated_graphics(item):
         if text in ("false", "no", "n", "0", "无", "不支持", "none", "no igpu"):
             return False
 
-    text = _upper(item)
+    text = unicodedata.normalize("NFKC", _upper(item))
     compact = re.sub(r"[^A-Z0-9\u4e00-\u9fff]+", "", text)
     if "INTEL" in text or "CORE" in text or compact.startswith(("I3", "I5", "I7", "I9", "U5", "U7", "U9")):
         # Intel desktop F/KF suffix SKUs disable integrated graphics.
-        if re.search(r"\b(?:I[3579]|CORE\s+ULTRA\s+[3579]|U[3579])[-\s]?\d{3,5}[A-Z]*F\b", text):
-            return False
-        if re.search(r"\b\d{3,5}[A-Z]*F\b", text):
+        if CPU_NO_IGPU_ALTERNATIVE_PATTERN.search(text) or CPU_NO_IGPU_SUFFIX_PATTERN.search(text):
             return False
         return True
 
     if "AMD" in text or "RYZEN" in text:
-        if re.search(r"\b\d{4,5}F\b", text):
+        if CPU_NO_IGPU_ALTERNATIVE_PATTERN.search(text) or CPU_NO_IGPU_SUFFIX_PATTERN.search(text):
             return False
-        if re.search(r"\b\d{4,5}(?:G|GE|GT)\b", text):
+        if re.search(r"(?<![A-Z0-9])\d{4,5}\s*(?:GE|GT|G)(?=$|[^A-Z0-9])", text):
             return True
-        match = re.search(r"\b(?:RYZEN\s+\d\s*)?(\d{4,5})(?:X3D|X)?\b", text)
+        match = re.search(
+            r"(?<![A-Z0-9])(?:RYZEN\s+\d\s*)?(\d{4,5})\s*(?:X3D|X)?(?=$|[^A-Z0-9])",
+            text,
+        )
         if match:
             return int(match.group(1)) >= 7000
     return None

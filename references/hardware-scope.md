@@ -22,6 +22,7 @@
 品牌: ASUS, Gigabyte, MSI, ASRock, Colorful, Maxsun, Biostar
 
 - 无独显整机只使用已由厂商规格核实 `display_outputs` 的主板；用 `--display-output any` 查询，明确接口时按 HDMI/DisplayPort/VGA 过滤。
+- 主板扩展能力按精确型号维护 `pcie_slot_layout`、USB4/雷电后置端口状态及共享条件。用 `--min-pcie-slots` 只筛已核实的物理槽数；`--require-usb4` 和 `--require-thunderbolt` 对未知字段保守排除。USB-C 不自动等于 USB4，雷电针脚不自动等于雷电口。
 
 ## 内存
 
