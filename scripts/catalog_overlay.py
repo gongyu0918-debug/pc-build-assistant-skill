@@ -26,6 +26,7 @@ from component_inference import (
 from motherboard_capabilities import (
     THUNDERBOLT_STATUSES,
     USB4_STATUSES,
+    validate_m2_slot_layout,
     validate_motherboard_capabilities,
     validate_pcie_slot_layout,
 )
@@ -62,7 +63,7 @@ CATEGORY_CONTRACTS = {
     "mb": CategoryContract("motherboards", ("socket", "memory_generations", "form_factor"), _fields(
         "platform", "socket", "chipset", "memory_generations", "memory_slots", "memory_freq_max",
         "memory_max_gb", "m2_slots", "sata_ports", "display_outputs", "form_factor", "color",
-        "pcie_slot_layout", "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
+        "pcie_slot_layout", "m2_slot_layout", "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
         "usb4_shares_with", "usb4_disable_conditions", "thunderbolt_status",
         "thunderbolt_rear_ports", "thunderbolt_version", "thunderbolt_header",
         "sata_port_conditions")),
@@ -144,6 +145,7 @@ FIELD_CONTRACTS = {
     ),
     "heatpipe_count": FieldContract("integer", minimum=1, maximum=16),
     "pcie_slot_layout": FieldContract("pcie_slot_list"),
+    "m2_slot_layout": FieldContract("m2_slot_list"),
     "usb4_status": FieldContract("string", choices=tuple(sorted(USB4_STATUSES)), pattern=NON_BLANK_PATTERN),
     "thunderbolt_status": FieldContract(
         "string", choices=tuple(sorted(THUNDERBOLT_STATUSES)), pattern=NON_BLANK_PATTERN
@@ -282,6 +284,8 @@ def _validate_spec_value(field, value, path):
         )
     elif contract.kind == "pcie_slot_list":
         valid = not validate_pcie_slot_layout(value)
+    elif contract.kind == "m2_slot_list":
+        valid = not validate_m2_slot_layout(value)
     else:
         valid = False
     if not valid:

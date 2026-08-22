@@ -130,7 +130,7 @@ DEDUPE_SPEC_FIELDS = {
     "mb": (
         "socket", "memory_generations", "form_factor", "memory_slots",
         "memory_max_gb", "memory_freq_max", "m2_slots", "sata_ports", "display_outputs",
-        "pcie_slot_layout", "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
+        "pcie_slot_layout", "m2_slot_layout", "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
         "usb4_shares_with", "usb4_disable_conditions", "thunderbolt_status",
         "thunderbolt_rear_ports", "thunderbolt_version", "thunderbolt_header",
         "sata_port_conditions",
@@ -182,7 +182,7 @@ SUMMARY_FIELDS_BY_CATEGORY = {
     "mb": SUMMARY_BASE_FIELDS + [
         "platform", "socket", "chipset", "memory_generations", "memory_slots",
         "memory_max_gb", "memory_freq_max", "m2_slots", "sata_ports", "sata_port_conditions",
-        "display_outputs", "form_factor", "color",
+        "m2_slot_layout", "display_outputs", "form_factor", "color",
         "usb4_status", "usb4_rear_ports", "usb4_speed_gbps",
         "usb4_shares_with", "usb4_disable_conditions",
         "thunderbolt_status", "thunderbolt_rear_ports", "thunderbolt_version",
@@ -1587,6 +1587,12 @@ def _query_core_components(spec):
                 continue
             if sec == "storage" and spec.min_capacity and _parse_int(item.get("capacity_gb")) < _parse_int(spec.min_capacity):
                 continue
+            if (
+                sec == "storage"
+                and not (spec.model or spec.item_id or spec.pcie_generation)
+                and _parse_int(item.get("pcie_generation")) >= 5
+            ):
+                continue
             if sec == "storage" and spec.pcie_generation and _parse_int(item.get("pcie_generation")) != _parse_int(spec.pcie_generation):
                 continue
             if sec == "storage" and not _matches_optional_bool(item, "dram_cache", spec.dram_cache):
@@ -2181,7 +2187,7 @@ def _build_parser():
     parser.add_argument("--max-capacity", type=int,
                         help="内存或 SSD 最高容量 (GB)；明确要 1TB SSD 时与 --min-capacity 1000 同用")
     parser.add_argument("--pcie-generation", type=int, choices=[3, 4, 5],
-                        help="SSD PCIe 代际过滤；高端 Gen5 候选用 5")
+                        help="SSD PCIe 代际过滤；Gen5 默认不进入普通候选，明确需要时用 5")
     parser.add_argument("--dram-cache", choices=["yes", "no"],
                         help="SSD 是否已确认独立 DRAM 缓存；yes 不包含字段未知条目")
     parser.add_argument("--color", help="颜色过滤 (black/white)")

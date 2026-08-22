@@ -91,7 +91,7 @@ COVERAGE_FIELDS = {
     "gpus": ["length_mm", "requires_16pin_psu"],
     "motherboards": [
         "m2_slots", "sata_ports", "memory_freq_max", "display_outputs",
-        "pcie_slot_layout", "usb4_status", "thunderbolt_status",
+        "pcie_slot_layout", "m2_slot_layout", "usb4_status", "thunderbolt_status",
     ],
     "memory": ["timing"],
     "storage": ["pcie_generation", "dram_cache", "dram_cache_mb"],

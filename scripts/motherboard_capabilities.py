@@ -22,6 +22,12 @@ PCIE_SLOT_REQUIRED_KEYS = {
     "slot_id", "mechanical", "electrical", "generation", "source",
 }
 PCIE_SLOT_OPTIONAL_KEYS = {"conditions", "shares_with"}
+M2_INTERFACES = {"pcie", "sata"}
+M2_PCIE_LANES = {1, 2, 4}
+M2_SLOT_REQUIRED_KEYS = {
+    "slot_id", "interfaces", "pcie_generation", "lanes", "source",
+}
+M2_SLOT_OPTIONAL_KEYS = {"conditions", "shares_with"}
 
 
 def _positive_int(value: Any, *, allow_zero: bool = False) -> bool:
@@ -89,11 +95,79 @@ def validate_pcie_slot_layout(value: Any) -> list[str]:
     return errors
 
 
+def validate_m2_slot_layout(value: Any) -> list[str]:
+    """Return validation errors for an exact M.2 storage-slot layout.
+
+    The layout deliberately models M.2 sockets separately from conventional
+    PCIe expansion slots. Every supported entry is a PCIe/NVMe-capable Key-M
+    storage socket; ``interfaces`` may additionally contain ``sata`` when the
+    exact socket supports M.2 SATA devices.
+    """
+    errors: list[str] = []
+    if not isinstance(value, list) or not value:
+        return ["m2_slot_layout must be a non-empty list"]
+
+    seen_ids: set[str] = set()
+    for index, slot in enumerate(value):
+        prefix = f"m2_slot_layout[{index}]"
+        if not isinstance(slot, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        missing = sorted(M2_SLOT_REQUIRED_KEYS - set(slot))
+        extra = sorted(set(slot) - M2_SLOT_REQUIRED_KEYS - M2_SLOT_OPTIONAL_KEYS)
+        if missing:
+            errors.append(f"{prefix} missing fields: {', '.join(missing)}")
+        if extra:
+            errors.append(f"{prefix} has unsupported fields: {', '.join(extra)}")
+
+        slot_id = slot.get("slot_id")
+        if not isinstance(slot_id, str) or not slot_id.strip():
+            errors.append(f"{prefix}.slot_id must be a non-blank string")
+        elif slot_id in seen_ids:
+            errors.append(f"{prefix}.slot_id duplicates {slot_id}")
+        else:
+            seen_ids.add(slot_id)
+
+        interfaces = slot.get("interfaces")
+        if (
+            not isinstance(interfaces, list)
+            or not interfaces
+            or len(set(interfaces)) != len(interfaces)
+            or any(interface not in M2_INTERFACES for interface in interfaces)
+            or "pcie" not in interfaces
+        ):
+            errors.append(
+                f"{prefix}.interfaces must be a unique list containing pcie and optional sata"
+            )
+
+        generation = slot.get("pcie_generation")
+        if not _positive_int(generation) or generation > 5:
+            errors.append(f"{prefix}.pcie_generation must be an integer from 1 to 5")
+        if slot.get("lanes") not in M2_PCIE_LANES:
+            errors.append(f"{prefix}.lanes must be one of {sorted(M2_PCIE_LANES)}")
+        if slot.get("source") not in PCIE_SOURCES:
+            errors.append(f"{prefix}.source must be cpu or chipset")
+        for key in ("conditions", "shares_with"):
+            if key in slot and not _non_blank_string_list(slot[key]):
+                errors.append(f"{prefix}.{key} must be a non-empty string list")
+    return errors
+
+
 def validate_motherboard_capabilities(item: dict[str, Any]) -> list[str]:
     """Validate cross-field motherboard facts while preserving unknown state."""
     errors: list[str] = []
     if "pcie_slot_layout" in item:
         errors.extend(validate_pcie_slot_layout(item.get("pcie_slot_layout")))
+    if "m2_slot_layout" in item:
+        layout = item.get("m2_slot_layout")
+        errors.extend(validate_m2_slot_layout(layout))
+        if (
+            isinstance(layout, list)
+            and isinstance(item.get("m2_slots"), int)
+            and not isinstance(item.get("m2_slots"), bool)
+            and item["m2_slots"] != len(layout)
+        ):
+            errors.append("m2_slots must equal the number of m2_slot_layout entries")
 
     for key in ("usb4_shares_with", "usb4_disable_conditions", "sata_port_conditions"):
         if key in item and not _non_blank_string_list(item.get(key)):
@@ -160,6 +234,20 @@ def pcie_physical_slot_count(item: dict[str, Any] | None) -> int | None:
     if validate_pcie_slot_layout(layout):
         return None
     return len({slot["slot_id"] for slot in layout})
+
+
+def verified_m2_slot_layout(item: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    """Return a verified M.2 layout; malformed or absent evidence stays unknown."""
+    layout = (item or {}).get("m2_slot_layout")
+    if validate_m2_slot_layout(layout):
+        return None
+    return layout
+
+
+def verified_m2_slot_count(item: dict[str, Any] | None) -> int | None:
+    """Return the exact M.2 slot count when a valid per-slot layout exists."""
+    layout = verified_m2_slot_layout(item)
+    return len(layout) if layout is not None else None
 
 
 def verified_usb4_ports(item: dict[str, Any] | None) -> int:

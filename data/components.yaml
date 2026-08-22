@@ -2762,6 +2762,32 @@ motherboards:
   thunderbolt_status: header_only
   thunderbolt_rear_ports: 0
   thunderbolt_header: true
+  m2_slot_layout:
+  - slot_id: M2_1
+    interfaces:
+    - pcie
+    pcie_generation: 4
+    lanes: 4
+    source: cpu
+  - slot_id: M2_2
+    interfaces:
+    - pcie
+    pcie_generation: 4
+    lanes: 4
+    source: chipset
+  - slot_id: M2_3
+    interfaces:
+    - pcie
+    - sata
+    pcie_generation: 4
+    lanes: 4
+    source: chipset
+  - slot_id: M2_4
+    interfaces:
+    - pcie
+    pcie_generation: 4
+    lanes: 4
+    source: chipset
 - id: mb-intel-z890-tomahawk-wifi
   brand: MSI
   model: MAG Z890 TOMAHAWK WIFI
@@ -2807,6 +2833,32 @@ motherboards:
   thunderbolt_rear_ports: 2
   thunderbolt_version: 4
   thunderbolt_header: true
+  m2_slot_layout:
+  - slot_id: M2_1
+    interfaces:
+    - pcie
+    pcie_generation: 5
+    lanes: 4
+    source: cpu
+  - slot_id: M2_2
+    interfaces:
+    - pcie
+    pcie_generation: 4
+    lanes: 4
+    source: cpu
+  - slot_id: M2_3
+    interfaces:
+    - pcie
+    pcie_generation: 4
+    lanes: 4
+    source: chipset
+  - slot_id: M2_4
+    interfaces:
+    - pcie
+    - sata
+    pcie_generation: 4
+    lanes: 4
+    source: chipset
 - id: mb-amd-pro-b650m-a-wifi
   brand: MSI
   model: PRO B650M-A WIFI
@@ -2903,6 +2955,19 @@ motherboards:
   - HDMI
   - VGA
   spec_source: 网络公开规格资料
+  m2_slot_layout:
+  - slot_id: M2_1
+    interfaces:
+    - pcie
+    pcie_generation: 4
+    lanes: 4
+    source: cpu
+  - slot_id: M2_2
+    interfaces:
+    - pcie
+    pcie_generation: 4
+    lanes: 4
+    source: chipset
 - id: demo-mb-asus-tuf-b850m-plus-wifi
   brand: ASUS
   model: ASUS TUF GAMING B850M-PLUS WIFI

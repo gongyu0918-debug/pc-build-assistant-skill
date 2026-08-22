@@ -49,6 +49,8 @@ from catalog_overlay import (
 )
 from motherboard_capabilities import (
     pcie_physical_slot_count,
+    verified_m2_slot_count,
+    verified_m2_slot_layout,
     verified_thunderbolt_ports,
     verified_usb4_ports,
 )
@@ -69,6 +71,82 @@ THERMAL_RANK_LABELS = {
     THERMAL_STRONG: "双塔六热管或240/280水冷级",
     THERMAL_HIGH: "360mm及以上水冷级",
 }
+
+
+def _storage_text(value):
+    return unicodedata.normalize("NFKC", str(value or "")).upper()
+
+
+def _storage_uses_m2(storage):
+    """Return whether explicit storage facts identify an M.2/NGFF device."""
+    text = " ".join(
+        (_storage_text(storage.get("form_factor")), _storage_text(storage.get("interface")))
+    )
+    return "MSATA" not in text and any(token in text for token in ("M.2", "M2", "NGFF"))
+
+
+def _storage_uses_m2_sata(storage):
+    return _storage_uses_m2(storage) and "SATA" in _storage_text(storage.get("interface"))
+
+
+def _m2_pcie_generation(storage):
+    if not _storage_uses_m2(storage) or _storage_uses_m2_sata(storage):
+        return None
+    value = storage.get("pcie_generation")
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and 1 <= value <= 5:
+        return value
+    match = re.search(r"(?:PCIE|GEN)\s*([1-5])", _storage_text(storage.get("interface")))
+    return int(match.group(1)) if match else None
+
+
+def _m2_slot_has_conditions(slot):
+    return bool(slot.get("conditions") or slot.get("shares_with"))
+
+
+def _assign_m2_pcie_slots(storage_list, layout):
+    """Assign PCIe M.2 devices while preserving full speed and simple slots."""
+    requested = sorted(
+        (
+            _m2_pcie_generation(storage)
+            for storage in storage_list
+            if _storage_uses_m2(storage) and not _storage_uses_m2_sata(storage)
+        ),
+        key=lambda generation: generation or 0,
+        reverse=True,
+    )
+    available = list(layout)
+    downgraded = []
+    used_slots = []
+    for generation in requested:
+        full_speed = [slot for slot in available if generation is None or slot["pcie_generation"] >= generation]
+        if full_speed:
+            selected = min(
+                full_speed,
+                key=lambda slot: (_m2_slot_has_conditions(slot), slot["pcie_generation"]),
+            )
+        else:
+            selected = min(
+                available,
+                key=lambda slot: (_m2_slot_has_conditions(slot), -slot["pcie_generation"]),
+            )
+            downgraded.append((generation, selected["pcie_generation"]))
+        available.remove(selected)
+        used_slots.append(selected)
+    return downgraded, used_slots
+
+
+def _m2_layout_generation_summary(layout):
+    counts = {}
+    for slot in layout:
+        if "pcie" not in slot.get("interfaces", []):
+            continue
+        generation = slot["pcie_generation"]
+        counts[generation] = counts.get(generation, 0) + 1
+    return "、".join(
+        f"Gen{generation}×{count}" for generation, count in sorted(counts.items(), reverse=True)
+    )
 
 
 class CompatibilityChecker:
@@ -372,17 +450,10 @@ class CompatibilityChecker:
                     "需按精确型号复核后再判断主板接口占用"
                 ),
             }
-        m2_slots = self._parse_num(mb.get("m2_slots", 0))
-        m2_count = sum(
-            1 for s in storage_list
-            if "M.2" in str(s.get("form_factor") or "").upper()
-            or "M.2" in str(s.get("interface") or "").upper()
-        )
-        m2_sata_count = sum(
-            1 for s in storage_list
-            if "M.2" in str(s.get("form_factor", ""))
-            and "SATA" in str(s.get("interface", "")).upper()
-        )
+        m2_layout = verified_m2_slot_layout(mb)
+        m2_slots = verified_m2_slot_count(mb) or self._parse_num(mb.get("m2_slots", 0))
+        m2_count = sum(1 for storage in storage_list if _storage_uses_m2(storage))
+        m2_sata_count = sum(1 for storage in storage_list if _storage_uses_m2_sata(storage))
         if m2_count > 0 and m2_slots > 0 and m2_count > m2_slots:
             return {"type": "error",
                 "msg": f"M.2硬盘数量【{m2_count}个】超过主板M.2接口数【{m2_slots}个】"}
@@ -418,24 +489,85 @@ class CompatibilityChecker:
                 "msg": f"第{'、'.join(unknown_sata_forms)}块SATA硬盘缺少形态信息，需复核2.5/3.5英寸或M.2 SATA后再判断接口占用",
             }
         if m2_sata_count:
-            support_value = (
-                mb.get("m2_sata_slots")
-                or mb.get("m2_sata_support")
-                or mb.get("sata_m2_slots")
-            )
-            if support_value in (True, "true", "yes", "支持"):
-                support_slots = m2_sata_count
+            if m2_layout is not None:
+                support_slots = sum(
+                    1 for slot in m2_layout if "sata" in slot.get("interfaces", [])
+                )
             else:
-                support_slots = self._parse_num(support_value)
-            if support_slots:
-                if m2_sata_count > support_slots:
-                    return {"type": "error",
-                        "msg": f"M.2 SATA硬盘数量【{m2_sata_count}个】超过主板M.2 SATA支持数【{support_slots}个】"}
-            else:
+                support_value = (
+                    mb.get("m2_sata_slots")
+                    or mb.get("m2_sata_support")
+                    or mb.get("sata_m2_slots")
+                )
+                if support_value in (True, "true", "yes", "支持"):
+                    support_slots = m2_sata_count
+                else:
+                    support_slots = self._parse_num(support_value)
+            if m2_layout is not None and m2_sata_count > support_slots:
+                return {"type": "error",
+                    "msg": f"M.2 SATA硬盘数量【{m2_sata_count}个】超过主板M.2 SATA支持数【{support_slots}个】"}
+            if m2_layout is None and support_slots and m2_sata_count > support_slots:
+                return {"type": "error",
+                    "msg": f"M.2 SATA硬盘数量【{m2_sata_count}个】超过主板M.2 SATA支持数【{support_slots}个】"}
+            if m2_layout is None and not support_slots:
                 return {"type": "warn",
                     "msg": "M.2 SATA硬盘需复核主板M.2插槽是否支持SATA模式；多数新主板M.2仅支持PCIe/NVMe"}
         if m2_count > 0 and not m2_slots:
             return {"type": "msg", "msg": "主板缺少M.2接口数量信息，需下单前复核"}
+        if m2_layout is not None:
+            sata_capable_slots = sorted(
+                (
+                    slot for slot in m2_layout
+                    if "sata" in slot.get("interfaces", [])
+                ),
+                key=lambda slot: (_m2_slot_has_conditions(slot), slot["pcie_generation"]),
+            )
+            used_sata_slots = sata_capable_slots[:m2_sata_count]
+            reserved_for_sata = {slot["slot_id"] for slot in used_sata_slots}
+            m2_pcie_layout = [
+                slot for slot in m2_layout
+                if "pcie" in slot.get("interfaces", [])
+                and slot["slot_id"] not in reserved_for_sata
+            ]
+            m2_pcie_count = m2_count - m2_sata_count
+            m2_pcie_slots = len(m2_pcie_layout)
+            if m2_pcie_count > m2_pcie_slots:
+                return {
+                    "type": "error",
+                    "msg": f"M.2 PCIe硬盘数量【{m2_pcie_count}个】超过主板PCIe/NVMe M.2支持数【{m2_pcie_slots}个】",
+                }
+            downgrades, used_pcie_slots = _assign_m2_pcie_slots(storage_list, m2_pcie_layout)
+            if downgrades:
+                requested, available = downgrades[0]
+                return {
+                    "type": "warn",
+                    "msg": (
+                        f"PCIe Gen{requested} M.2 SSD可安装，但至少一块只能按Gen{available}运行；"
+                        f"主板已核实M.2槽位为{_m2_layout_generation_summary(m2_layout)}。"
+                        "除非复用已有硬盘、价格无溢价或用户明确接受降速，默认改选匹配代际的SSD"
+                    ),
+                }
+            used_conditional_slots = [
+                slot for slot in [*used_sata_slots, *used_pcie_slots]
+                if _m2_slot_has_conditions(slot)
+            ]
+            if used_conditional_slots:
+                details = []
+                for slot in used_conditional_slots:
+                    facts = [*(slot.get("conditions") or []), *(slot.get("shares_with") or [])]
+                    details.append(f"{slot['slot_id']}: {'；'.join(facts)}")
+                return {
+                    "type": "msg",
+                    "msg": "M.2槽位存在处理器或通道共享条件，需按主板说明书复核: " + "；".join(details),
+                }
+        elif any((_m2_pcie_generation(storage) or 0) >= 5 for storage in storage_list):
+            return {
+                "type": "msg",
+                "msg": (
+                    "所选PCIe 5.0 M.2 SSD缺少主板逐槽代际证据，不能确认能否按Gen5运行；"
+                    "默认改选PCIe 4.0 SSD，或先按主板精确型号官网规格复核"
+                ),
+            }
         return {"type": "success", "msg": "硬盘接口兼容"}
 
     def check_sata_ports(self, storage_list, mb):
