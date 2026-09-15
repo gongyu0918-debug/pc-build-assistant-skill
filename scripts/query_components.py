@@ -79,6 +79,8 @@ DISPLAY_CATEGORIES = {"display", "monitor"}
 FAN_CATEGORIES = {"fan"}
 DEFAULT_QUERY_LIMIT = 20
 PRICE_STALE_AFTER_DAYS = 14
+PRICE_FLOOR_SPARSE_ABOVE_COUNT = 3
+PRICE_FLOOR_VERIFY_WARNING = "价格变化大，数据更新可能不及时，请及时核对现价。"
 
 
 @dataclass(frozen=True)
@@ -173,7 +175,10 @@ DISPLAY_NAMES = {
 SUMMARY_BASE_FIELDS = [
     "id", "brand", "model", "brand_en", "model_en", "normalization_status",
     "price", "price_currency", "price_cny", "base_price_cny", "price_status", "price_date",
-    "price_age_days", "price_stale", "spec_conflicts",
+    "price_age_days", "price_stale", "price_floor_cny", "price_floor_status",
+    "price_floor_gap_percent", "price_floor_bottom_decile_cutoff_cny",
+    "price_floor_policy", "price_floor_above_candidate_count",
+    "price_floor_warning", "spec_conflicts",
 ]
 SUMMARY_FIELDS_BY_CATEGORY = {
     "cpu": SUMMARY_BASE_FIELDS + [
@@ -844,42 +849,192 @@ def _low_price_floor(category, group_key, group_prices):
     return mid * ratio
 
 
-def filter_low_price_outliers(category, results):
-    """Remove low-price outliers from default tier results without setting an upper cap."""
+def _price_floor_group_key(category, item, floor_cny):
+    """Group candidates covered by the same trusted floor policy."""
+    if category == "cpu":
+        text = compact_text(" ".join(str(item.get(k, "")) for k in ("brand", "model", "id")))
+        rows = sorted(
+            load_price_floors().get("cpus", []),
+            key=lambda row: len(compact_text(row.get("model"))),
+            reverse=True,
+        )
+        for row in rows:
+            tokens = _cpu_price_floor_tokens(row.get("model"))
+            if tokens and any(token in text for token in tokens):
+                return ("cpu", compact_text(row.get("model")))
+    if category == "gpu":
+        key = _outlier_group_key(category, item)
+        if key:
+            return key
+    if category == "memory":
+        return (
+            "memory",
+            str(item.get("generation") or "").upper(),
+            _parse_int(item.get("capacity_gb")),
+            _parse_int(item.get("module_count")),
+        )
+    if category == "storage":
+        capacity = _parse_int(item.get("capacity_gb"))
+        if not capacity and item.get("capacity_tb"):
+            capacity = int(_parse_num(item.get("capacity_tb")) * 1000)
+        capacity_bucket = int(round(capacity / 1000.0) * 1000) if capacity else 0
+        return ("storage", capacity_bucket, _parse_int(item.get("pcie_generation")), floor_cny)
+    return (category, floor_cny)
+
+
+def _price_floor_brand_key(item):
+    """Return a neutral brand key for channel-coverage based popularity checks."""
+    brand = compact_text(item.get("brand"))
+    if brand:
+        return brand
+    model = str(item.get("model") or "").strip()
+    return compact_text(re.split(r"\s+", model, maxsplit=1)[0]) if model else ""
+
+
+def _is_floorless_volatile_gpu(item):
+    chip = compact_text(" ".join(str(item.get(k, "")) for k in ("chip", "model", "id")))
+    return "RTX5090" in chip
+
+
+def _popular_brand_market_shift(items, floor_cny):
+    """Detect a broad below-floor move using high-coverage brands in this candidate set."""
+    brand_prices = {}
+    for item in items:
+        if _is_selected_user_quote(item):
+            continue
+        brand = _price_floor_brand_key(item)
+        price = float(_query_price(item))
+        if brand and price > 0:
+            brand_prices.setdefault(brand, []).append(price)
+    if len(brand_prices) < 2:
+        return False, len(brand_prices), 0
+    max_listings = max(len(prices) for prices in brand_prices.values())
+    coverage_floor = max(2, (max_listings + 1) // 2)
+    popular = sorted(
+        (
+            (brand, prices)
+            for brand, prices in brand_prices.items()
+            if len(prices) >= coverage_floor
+        ),
+        key=lambda pair: (-len(pair[1]), pair[0]),
+    )[:6]
+    if len(popular) < 2:
+        return False, len(popular), 0
+    below = sum(1 for _, prices in popular if median(prices) < floor_cny)
+    return below * 2 > len(popular), len(popular), below
+
+
+def _clear_price_floor_annotations(item):
+    for field in (
+        "price_floor_cny", "price_floor_status", "price_floor_gap_percent",
+        "price_floor_bottom_decile_cutoff_cny", "price_floor_policy",
+        "price_floor_above_candidate_count", "price_floor_warning",
+        "_price_floor_rank",
+    ):
+        item.pop(field, None)
+
+
+def filter_low_price_outliers(category, results, budget=None, explicit_identity=False):
+    """Annotate and downrank low prices; never remove a usable candidate."""
     if _QUERY_CURRENCY != "CNY":
         return results
     if category not in {"cpu", "gpu", "storage", "memory"}:
         return results
-    groups = {}
-    if category != "cpu":
-        for item in results:
-            # Price floors guard imported channel quotes.  A quote explicitly
-            # supplied by the user is local evidence and must remain usable in
-            # that currency, without shifting the channel-price distribution.
-            if _is_selected_user_quote(item):
-                continue
-            price = _query_price(item)
-            key = _outlier_group_key(category, item)
-            if key and price:
-                groups.setdefault(key, []).append(float(price))
-    floors = {
-        key: floor for key, prices in groups.items()
-        if (floor := _low_price_floor(category, key, prices)) is not None
-    }
-    kept = []
+
+    floor_groups = {}
     for item in results:
-        if _is_selected_user_quote(item):
-            kept.append(item)
-            continue
-        key = _outlier_group_key(category, item)
-        price = float(_query_price(item))
+        _clear_price_floor_annotations(item)
         trusted_floor = _trusted_price_floor(category, item)
-        if trusted_floor and price and price < trusted_floor:
+        if not trusted_floor:
+            if category == "gpu" and _is_floorless_volatile_gpu(item):
+                item.update({
+                    "price_floor_status": "not_set_volatile",
+                    "price_floor_policy": "verify_current_price",
+                    "price_floor_warning": "当前不设可信价格地板；" + PRICE_FLOOR_VERIFY_WARNING,
+                    "_price_floor_rank": 0,
+                })
             continue
-        if key in floors and price and price < floors[key]:
-            continue
-        kept.append(item)
-    return kept
+        key = _price_floor_group_key(category, item, trusted_floor)
+        floor_groups.setdefault(key, []).append(item)
+        item["price_floor_cny"] = trusted_floor
+
+    for items in floor_groups.values():
+        floor_cny = int(items[0]["price_floor_cny"])
+        channel_items = [
+            item for item in items
+            if not _is_selected_user_quote(item) and _query_price(item) > 0
+        ]
+        channel_prices = sorted(float(_query_price(item)) for item in channel_items)
+        bottom_decile_count = max(1, (len(channel_prices) + 9) // 10) if channel_prices else 0
+        bottom_decile_cutoff = (
+            channel_prices[bottom_decile_count - 1] if bottom_decile_count else None
+        )
+        above_count = sum(_query_price(item) >= floor_cny for item in channel_items)
+        market_shift, popular_count, popular_below = _popular_brand_market_shift(
+            channel_items, floor_cny
+        )
+        sparse_above = above_count < PRICE_FLOOR_SPARSE_ABOVE_COUNT
+        for item in items:
+            price = float(_query_price(item))
+            below_floor = bool(price and price < floor_cny)
+            gap_percent = round(max(0.0, (floor_cny - price) / floor_cny * 100), 1) if price else 0.0
+            deep_below_floor = bool(
+                below_floor and bottom_decile_cutoff is not None
+                and price <= bottom_decile_cutoff
+            )
+            item["price_floor_above_candidate_count"] = above_count
+            item["price_floor_status"] = (
+                "deep_below" if deep_below_floor else "below" if below_floor else "at_or_above"
+            )
+            if below_floor:
+                item["price_floor_gap_percent"] = gap_percent
+            if bottom_decile_cutoff is not None:
+                item["price_floor_bottom_decile_cutoff_cny"] = bottom_decile_cutoff
+            item["_price_floor_rank"] = 0
+            warnings = []
+
+            if deep_below_floor:
+                warnings.append(
+                    f"该候选低于可信价格地板，且位于同品类当前报价最低 10% 区间"
+                    f"（分界约 CNY {bottom_decile_cutoff:g}）。"
+                )
+                if explicit_identity:
+                    item["price_floor_policy"] = "named_request_exception"
+                    warnings.append("仅因用户点名保留为可选项。")
+                else:
+                    item["price_floor_policy"] = "deep_below_floor_not_recommended"
+                    item["_price_floor_rank"] = 2
+                    warnings.append("默认装机不推荐。")
+            elif below_floor:
+                warnings.append("该候选低于可信价格地板。")
+                if explicit_identity:
+                    item["price_floor_policy"] = "named_request_exception"
+                    warnings.append("因用户点名保留为可选项。")
+                elif _is_selected_user_quote(item):
+                    item["price_floor_policy"] = "user_quote"
+                elif market_shift:
+                    item["price_floor_policy"] = "popular_market_fallback"
+                    warnings.append(
+                        f"同组高覆盖品牌中有 {popular_below}/{popular_count} 个品牌的中位报价低于地板，允许回退选择。"
+                    )
+                elif above_count == 0:
+                    item["price_floor_policy"] = (
+                        "budget_fallback" if budget is not None else "available_candidate_fallback"
+                    )
+                    warnings.append("当前筛选范围内没有地板之上的可用候选，允许回退选择。")
+                else:
+                    item["price_floor_policy"] = "prefer_above_floor"
+                    item["_price_floor_rank"] = 1
+            else:
+                item["price_floor_policy"] = "preferred_above_floor"
+
+            if sparse_above:
+                warnings.append(f"同组地板之上仅有 {above_count} 个可用商品，样本较少。")
+            if below_floor or sparse_above:
+                warnings.append(PRICE_FLOOR_VERIFY_WARNING)
+            if warnings:
+                item["price_floor_warning"] = "".join(warnings)
+    return results
 
 
 def _is_selected_user_quote(item):
@@ -888,23 +1043,11 @@ def _is_selected_user_quote(item):
     return item.get("price_status") == "user_quote" and currency == _QUERY_CURRENCY
 
 
-def keep_identity_matches_without_untrusted_prices(category, results):
-    """Keep lookup-only rows while preventing rejected prices from entering totals."""
-    trusted_ids = {item.get("id") for item in filter_low_price_outliers(category, results)}
-    kept = []
-    for item in results:
-        if item.get("id") in trusted_ids:
-            kept.append(item)
-            continue
-        lookup_item = dict(item)
-        lookup_item["price_cny"] = None
-        lookup_item["price_status"] = "needs_market_quote"
-        # A foreign user quote may have preserved the original CNY quote in
-        # base_price_* fields.  Remember that the current CNY lookup rejected
-        # that quote so projection cannot revive it later.
-        lookup_item["_cny_price_suppressed"] = True
-        kept.append(lookup_item)
-    return kept
+def keep_identity_matches_without_untrusted_prices(category, results, budget=None):
+    """Keep exact matches and expose low-price risk instead of suppressing their quote."""
+    return filter_low_price_outliers(
+        category, results, budget=budget, explicit_identity=True
+    )
 
 
 def color_matches(item, requested):
@@ -1172,7 +1315,7 @@ def _project_selected_price(item):
     for internal_field in (
         "active_price", "user_price", "user_price_currency", "user_price_date",
         "base_price_status", "base_price_date", "user_quote_note", "_cny_price_suppressed",
-        "_catalog_conflict_fields", USER_CONFIRMED_SPEC_FIELDS,
+        "_catalog_conflict_fields", "_price_floor_rank", USER_CONFIRMED_SPEC_FIELDS,
     ):
         projected.pop(internal_field, None)
     projected.update({
@@ -1410,9 +1553,15 @@ def _sort_results(results, sort, category=None):
     if sort == "tier":
         results.sort(key=lambda x: _tier_sort_key(category, x))
     elif sort in ("desc", "price-desc"):
-        results.sort(key=lambda x: (_query_price(x) <= 0, -_query_price(x), x.get("id", "")))
+        results.sort(key=lambda x: (
+            x.get("_price_floor_rank", 0), _query_price(x) <= 0,
+            -_query_price(x), x.get("id", ""),
+        ))
     else:
-        results.sort(key=lambda x: (_query_price(x) <= 0, _query_price(x), x.get("id", "")))
+        results.sort(key=lambda x: (
+            x.get("_price_floor_rank", 0), _query_price(x) <= 0,
+            _query_price(x), x.get("id", ""),
+        ))
 
 
 def _price_freshness(item, as_of=None):
@@ -1608,9 +1757,11 @@ def _query_core_components(spec):
 
     if spec.category:
         if spec.model or spec.item_id:
-            results = keep_identity_matches_without_untrusted_prices(spec.category, results)
+            results = keep_identity_matches_without_untrusted_prices(
+                spec.category, results, budget=spec.budget
+            )
         else:
-            results = filter_low_price_outliers(spec.category, results)
+            results = filter_low_price_outliers(spec.category, results, budget=spec.budget)
             if spec.category == "gpu":
                 results = filter_ambiguous_gpu_skus(results, lib.get("gpus", []))
     _sort_results(results, spec.sort, spec.category)
@@ -1909,7 +2060,7 @@ def _psu_tier(item):
 def _tier_sort_key(category, item):
     """Category-aware tier sort used by the progressive query helper."""
     price = _query_price(item)
-    price_key = (price <= 0, price, item.get("id", ""))
+    price_key = (item.get("_price_floor_rank", 0), price <= 0, price, item.get("id", ""))
     if category == "cpu":
         return (-_cpu_tier(item), *price_key)
     if category == "gpu":
@@ -2360,15 +2511,38 @@ def _print_result_row(category, item, *, detail=False):
         showcase_tag = " [海景房]" if item.get("is_showcase") else ""
         extra = display_extra(category, item)
         stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
+        if item.get("price_floor_status") == "deep_below":
+            floor_tag = " [低于地板且处同品类最低10%，默认不推荐]"
+        elif item.get("price_floor_status") == "below":
+            floor_tag = " [低于价格地板，请核实现价]"
+        elif item.get("price_floor_status") == "not_set_volatile":
+            floor_tag = " [价格波动大，请核实现价]"
+        elif item.get("price_floor_warning"):
+            floor_tag = " [地板上样本少，请核实现价]"
+        else:
+            floor_tag = ""
         print(
             f"  {item.get('id',''):45s} {item.get('brand',''):10s} "
             f"{item.get('model',''):35s} {price:>8s} {color} {extra} "
-            f"{showcase_tag}{stale_tag}"
+            f"{showcase_tag}{stale_tag}{floor_tag}"
         )
         return
     price = f"{currency} {selected_price}" if selected_price else "待补价"
     stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
-    print(f"  {item['id']:45s} {item.get('brand',''):12s} {item.get('model',''):40s} {price:>8s}{stale_tag}")
+    if item.get("price_floor_status") == "deep_below":
+        floor_tag = " [低于地板且处同品类最低10%，默认不推荐]"
+    elif item.get("price_floor_status") == "below":
+        floor_tag = " [低于价格地板，请核实现价]"
+    elif item.get("price_floor_status") == "not_set_volatile":
+        floor_tag = " [价格波动大，请核实现价]"
+    elif item.get("price_floor_warning"):
+        floor_tag = " [地板上样本少，请核实现价]"
+    else:
+        floor_tag = ""
+    print(
+        f"  {item['id']:45s} {item.get('brand',''):12s} "
+        f"{item.get('model',''):40s} {price:>8s}{stale_tag}{floor_tag}"
+    )
 
 
 def _emit_grouped_output(output, args):
