@@ -896,10 +896,19 @@ def _is_floorless_volatile_gpu(item):
     return "RTX5090" in chip
 
 
+def _current_market_quotes(items):
+    """Use dated, non-stale quotes for current-market distribution when available."""
+    current = [
+        item for item in items
+        if _query_price_date(item) and not _price_freshness(item).get("price_stale", False)
+    ]
+    return current or items
+
+
 def _popular_brand_market_shift(items, floor_cny):
     """Detect a broad below-floor move using high-coverage brands in this candidate set."""
     brand_prices = {}
-    for item in items:
+    for item in _current_market_quotes(items):
         if _is_selected_user_quote(item):
             continue
         brand = _price_floor_brand_key(item)
@@ -964,14 +973,15 @@ def filter_low_price_outliers(category, results, budget=None, explicit_identity=
             item for item in items
             if not _is_selected_user_quote(item) and _query_price(item) > 0
         ]
-        channel_prices = sorted(float(_query_price(item)) for item in channel_items)
+        current_market_items = _current_market_quotes(channel_items)
+        channel_prices = sorted(float(_query_price(item)) for item in current_market_items)
         bottom_decile_count = max(1, (len(channel_prices) + 9) // 10) if channel_prices else 0
         bottom_decile_cutoff = (
             channel_prices[bottom_decile_count - 1] if bottom_decile_count else None
         )
-        above_count = sum(_query_price(item) >= floor_cny for item in channel_items)
+        above_count = sum(_query_price(item) >= floor_cny for item in current_market_items)
         market_shift, popular_count, popular_below = _popular_brand_market_shift(
-            channel_items, floor_cny
+            current_market_items, floor_cny
         )
         sparse_above = above_count < PRICE_FLOOR_SPARSE_ABOVE_COUNT
         for item in items:
