@@ -1,9 +1,9 @@
 metadata:
-  price_date: 2026-09-19
-  cpu_price_date: 2026-09-19
-  gpu_price_date: 2026-09-19
-  memory_price_date: 2026-09-19
-  storage_price_date: 2026-09-19
+  price_date: 2026-09-20
+  cpu_price_date: 2026-09-20
+  gpu_price_date: 2026-09-20
+  memory_price_date: 2026-09-20
+  storage_price_date: 2026-09-20
   source_type: network_public_price_observation
   scope: default_downrank_reference_only
   notes:
@@ -11,10 +11,10 @@ metadata:
     - Floors are lower-bound trust references used for ranking and warnings, never hard filters or upper price caps.
     - Default builds prefer at-or-above-floor candidates; below-floor candidates remain available for budget or broad-market fallback.
     - A below-floor quote in the lowest 10% of its same-spec price group is further downranked and not recommended unless the user names it explicitly.
-    - User-provided daily floor images cover current CPUs, GPUs, memory kits and SSDs on 2026-09-19.
+    - User-provided daily floor images cover current CPUs, GPUs, memory kits and SSDs on 2026-09-20.
     - GPU floors use the daily-low column, not the historical-low column or trend chart endpoint.
     - RTX 5090, RTX 5090D and RTX 5090D V2 floors are temporarily cleared because those cards are moving too fast; always warn users to verify the current price.
-    - Legacy GPU rows not present in the 2026-09-19 daily-low table retain their last explicit lower-bound evidence; average transaction prices and trend charts are not transcribed as daily floors.
+    - Legacy GPU rows not present in the 2026-09-20 daily-low table retain their last explicit lower-bound evidence; average transaction prices and trend charts are not transcribed as daily floors.
 cpus:
   - model: U7-270KPLUS
     floor_cny: 1899
@@ -31,25 +31,25 @@ cpus:
   - model: U5-245KF
     floor_cny: 979
   - model: I9-14900K
-    floor_cny: 2460
+    floor_cny: 2470
   - model: I9-14900KF
-    floor_cny: 2460
+    floor_cny: 2470
   - model: I7-14700K
-    floor_cny: 2149
+    floor_cny: 2110
   - model: I7-14700KF
-    floor_cny: 2149
+    floor_cny: 2110
   - model: I5-14600K
-    floor_cny: 1337
+    floor_cny: 1315
   - model: I5-14600KF
-    floor_cny: 1337
+    floor_cny: 1315
   - model: R9-9950X
-    floor_cny: 2629
+    floor_cny: 2692
   - model: R9-9900X
     floor_cny: 2179
   - model: R7-9700X
-    floor_cny: 1347
+    floor_cny: 1343
   - model: R5-9600X
-    floor_cny: 1003
+    floor_cny: 1005
   - model: R5-9500F
     floor_cny: 840
   - model: R9-9950X3D
@@ -68,22 +68,22 @@ gpus:
     floor_cny: 12399
   - chip: RTX5070TI
     min_vram_gb: 16
-    floor_cny: 8799
+    floor_cny: 9000
   - chip: RTX5070
     min_vram_gb: 12
-    floor_cny: 6799
+    floor_cny: 6949
   - chip: RTX5060TI
     min_vram_gb: 16
-    floor_cny: 4899
+    floor_cny: 4999
   - chip: RTX5060TI
     max_vram_gb: 8
-    floor_cny: 3379
+    floor_cny: 3199
   - chip: RTX5060
     min_vram_gb: 8
     floor_cny: 2969
   - chip: RTX5050
     min_vram_gb: 8
-    floor_cny: 2469
+    floor_cny: 2359
   - chip: RTX4070SUPER
     min_vram_gb: 12
     floor_cny: 3415
@@ -92,19 +92,19 @@ gpus:
     floor_cny: 1350
   - chip: RX9070XT
     min_vram_gb: 16
-    floor_cny: 5650
+    floor_cny: 5699
   - chip: RX9070GRE
     min_vram_gb: 12
-    floor_cny: 3999
+    floor_cny: 4000
   - chip: RX9070
     min_vram_gb: 16
     floor_cny: 5199
   - chip: RX9060XT
     min_vram_gb: 16
-    floor_cny: 3328
+    floor_cny: 3349
   - chip: RX9060XT
     max_vram_gb: 8
-    floor_cny: 2598
+    floor_cny: 2599
   - chip: RX7900XT
     min_vram_gb: 20
     floor_cny: 3184
@@ -113,12 +113,12 @@ gpus:
     floor_cny: 2459
   - chip: ARCB570
     min_vram_gb: 10
-    floor_cny: 1849
+    floor_cny: 1999
 memory:
   - generation: DDR4
     capacity_gb: 16
     module_count: 2
-    floor_cny: 625
+    floor_cny: 615
   - generation: DDR4
     capacity_gb: 32
     module_count: 2
@@ -134,7 +134,7 @@ memory:
   - generation: DDR5
     capacity_gb: 64
     module_count: 2
-    floor_cny: 4799
+    floor_cny: 4599
   - generation: DDR5
     capacity_gb: 96
     module_count: 2
