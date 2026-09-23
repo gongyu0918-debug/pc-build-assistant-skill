@@ -126,3 +126,4 @@
 - 已确认要输出具体型号、完整配置、升级方案、配置补全或搭配检查时，继续读取 `selection-policy.md`。
 - 只做意图路由、纯方向问答或硬件知识解释时，不加载完整选件策略；按需读取 `hardware-faq.md`。
 - 具体用途仍读取 `scenarios.md`，价格和兼容字段分别读取 `pricing.md`、`compatibility.md`。
+- 用户询问一体式水冷保修、漏液包赔、售后网址或在线安装说明书时，按需读取 `liquid-cooling-support.md`；具体购买或索赔条款还要打开对应官方页面复核。

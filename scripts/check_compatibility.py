@@ -23,6 +23,7 @@ from component_inference import (
     THERMAL_MAINSTREAM,
     THERMAL_STRONG,
     enrich_item,
+    infer_cooler_exclusive_platform,
     infer_cooler_thermal_profile,
     infer_cpu_conservative_power_w,
     infer_cpu_required_thermal_rank,
@@ -292,13 +293,26 @@ class CompatibilityChecker:
             cooler_sockets.extend(self._normalize_socket_list(value))
         if not cpu_sockets:
             return {"type": "msg", "msg": "CPU缺少接口信息，需下单前复核散热扣具"}
+        exclusive_platform = infer_cooler_exclusive_platform(cooler)
+        if exclusive_platform:
+            cpu_platforms = {
+                "intel" if socket.startswith("LGA") else "amd" if socket.startswith("AM") else None
+                for socket in cpu_sockets
+            }
+            if exclusive_platform not in cpu_platforms:
+                return {
+                    "type": "error",
+                    "msg": f"散热器型号明确标注{exclusive_platform.upper()}专用，不能搭配CPU接口【{cpu.get('socket')}】",
+                }
         if not cooler_sockets:
             incomplete = self._as_list(cooler.get("_overlay_incomplete_fields"))
             if "socket_support" in incomplete:
                 return {"type": "msg", "msg": "用户散热器缺少接口支持信息，需下单前复核扣具"}
             return {
                 "type": "skipped",
-                "msg": "内置旧库散热器缺少结构化扣具字段，沿用既有门禁并跳过接口检查",
+                "msg": "散热器未收录精确扣具接口；"
+                       + (f"型号标注{exclusive_platform.upper()}专用，与CPU同平台，" if exclusive_platform else "")
+                       + "不据此宣称已核实具体接口",
                 "review_required": False,
             }
         if not set(cpu_sockets).intersection(cooler_sockets):
@@ -686,6 +700,10 @@ class CompatibilityChecker:
         elif cooler_type in ("liquid", "water", "水冷"):
             radiator = cooler.get("radiator_mm", "")
             rad_support = self._as_list(case.get("radiator_support"))
+            if not radiator:
+                return {"type": "msg", "msg": "水冷缺少冷排尺寸，无法核对机箱冷排位"}
+            if not rad_support:
+                return {"type": "msg", "msg": "机箱缺少冷排位信息，需按水冷冷排尺寸复核"}
             if radiator and rad_support:
                 requested = int(self._parse_num(radiator))
                 listed_sizes = {
@@ -700,7 +718,7 @@ class CompatibilityChecker:
                 if not supported:
                     return {"type": "error",
                         "msg": f"冷排【{radiator}】不在机箱支持范围【{rad_support}】"}
-                return {"type": "success", "msg": "冷排在机箱支持范围内"}
+                return {"type": "success", "msg": "标称冷排规格在机箱支持范围内；厚度和管路走线仍按具体型号复核"}
         return {}
 
     def check_case_motherboard(self, case, mb):

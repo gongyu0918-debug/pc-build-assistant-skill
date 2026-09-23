@@ -21,6 +21,11 @@ COOLER_LIQUID_FAMILY_TERMS = (
     "星凰X360", "星渊", "C240 VALKYRIE", "C480", "酷凛 FX120", "巨浪120", "寒战120",
 )
 COOLER_RADIATOR_PATTERN = re.compile(r"(?<!\d)(120|240|280|360|420|480)(?!\d)")
+COOLER_EXCLUSIVE_PLATFORM_PATTERN = re.compile(
+    r"(?P<platform>AMD|INTEL|英特尔)\s*(?:平台)?(?:专用|版本|可用|适用)"
+    r"|(?:专用|版本|可用|适用|仅支持)\s*(?P<reverse>AMD|INTEL|英特尔)",
+    re.IGNORECASE,
+)
 COOLER_LIQUID_SERIES_RADIATOR_PATTERNS = (
     (re.compile(r"(?<![A-Z0-9])(?:V36|GL36)(?![A-Z0-9])", re.IGNORECASE), 360),
     (re.compile(r"(?<![A-Z0-9])XW36(?:SD|S)?(?!\d)", re.IGNORECASE), 360),
@@ -57,6 +62,19 @@ class CoolerThermalProfile:
     rank: int | None
     label: str
     evidence: tuple[str, ...] = ()
+
+
+def infer_cooler_exclusive_platform(item):
+    """Read an explicit single-platform SKU label; ordinary support claims are not exclusive."""
+    model = unicodedata.normalize("NFKC", str((item or {}).get("model") or ""))
+    platforms = {
+        "intel" if (match.group("platform") or match.group("reverse")).lower() == "英特尔"
+        else (match.group("platform") or match.group("reverse")).lower()
+        for match in COOLER_EXCLUSIVE_PLATFORM_PATTERN.finditer(model)
+    }
+    return next(iter(platforms)) if len(platforms) == 1 else None
+
+
 MEMORY_DDR_FREQUENCY_PATTERN = re.compile(
     r"(?<![A-Z0-9])DDR\s*([45])\s*[-_/]?\s*(\d{4,5})(?:\s*(?:MHZ|MT/S|MTPS|频))?(?!\d)",
     re.IGNORECASE,

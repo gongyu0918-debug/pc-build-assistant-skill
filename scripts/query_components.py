@@ -30,6 +30,7 @@ from component_inference import (
     THERMAL_STRONG,
     USER_CONFIRMED_SPEC_FIELDS,
     infer_cooler_thermal_profile,
+    infer_cooler_exclusive_platform,
     infer_cpu_integrated_graphics,
     infer_gpu_cooling,
     infer_gpu_vram,
@@ -1713,6 +1714,10 @@ def _query_core_components(spec):
                 item_platform = item.get("platform", "").lower()
                 if item_platform and spec.platform.lower() not in item_platform:
                     continue
+                if sec == "coolers":
+                    exclusive_platform = infer_cooler_exclusive_platform(item)
+                    if exclusive_platform and exclusive_platform != spec.platform.lower():
+                        continue
             if spec.socket and sec in ("cpus", "motherboards") and not _matches_socket(item, spec.socket):
                 continue
             if (

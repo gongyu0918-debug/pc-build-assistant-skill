@@ -50618,6 +50618,13 @@ coolers:
   color: black
   rgb: true
   radiator_mm: 360
+  socket_support:
+  - LGA1851
+  - LGA1700
+  - LGA1200
+  - AM5
+  - AM4
+  spec_source: 网络公开规格资料
 - id: cooler-th360-6c703f6e
   brand: 乔思伯
   model: 乔思伯 TH-360 一体式水冷散热器 白色
