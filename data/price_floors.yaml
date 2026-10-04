@@ -1,9 +1,9 @@
 metadata:
-  price_date: '2026-10-02'
-  cpu_price_date: 2026-09-28
-  gpu_price_date: '2026-10-02'
-  memory_price_date: '2026-10-02'
-  storage_price_date: '2026-10-02'
+  price_date: '2026-10-04'
+  cpu_price_date: '2026-10-04'
+  gpu_price_date: '2026-10-04'
+  memory_price_date: '2026-10-04'
+  storage_price_date: '2026-10-04'
   source_type: network_public_price_observation
   scope: default_downrank_reference_only
   notes:
@@ -19,79 +19,79 @@ metadata:
     endpoint.
   - RTX 5090, RTX 5090D and RTX 5090D V2 floors are temporarily cleared because those
     cards are moving too fast; always warn users to verify the current price.
-  - Dated daily-low tables cover GPU, memory and storage on 2026-10-02; CPU retains
-    its last explicit evidence on 2026-09-28.
+  - Dated daily-low tables cover GPU, memory and storage on 2026-10-04; CPU retains
+    its last explicit evidence on 2026-10-04.
   - Legacy GPU rows absent from the latest daily-low table retain their previous evidence;
     historical lows, second-hand prices and trend charts are not daily floors.
 cpus:
 - model: U7-270KPLUS
-  floor_cny: 1958
+  floor_cny: 1935
 - model: U7-265K
-  floor_cny: 1559
+  floor_cny: 1609
 - model: U7-265KF
-  floor_cny: 1559
+  floor_cny: 1609
 - model: U5-250K
   floor_cny: 1199
 - model: U5-250KF
   floor_cny: 1199
 - model: U5-245K
-  floor_cny: 979
+  floor_cny: 978
 - model: U5-245KF
-  floor_cny: 979
+  floor_cny: 978
 - model: I9-14900K
-  floor_cny: 2470
+  floor_cny: 2699
 - model: I9-14900KF
-  floor_cny: 2470
+  floor_cny: 2699
 - model: I7-14700K
-  floor_cny: 2109
+  floor_cny: 2099
 - model: I7-14700KF
-  floor_cny: 2109
+  floor_cny: 2099
 - model: I5-14600K
   floor_cny: 1299
 - model: I5-14600KF
   floor_cny: 1299
 - model: R9-9950X
-  floor_cny: 2700
+  floor_cny: 2730
 - model: R9-9900X
   floor_cny: 2179
 - model: R7-9700X
-  floor_cny: 1330
+  floor_cny: 1340
 - model: R5-9600X
-  floor_cny: 1004
+  floor_cny: 1021
 - model: R5-9500F
-  floor_cny: 788
+  floor_cny: 829
 - model: R9-9950X3D
-  floor_cny: 3899
+  floor_cny: 3889
 - model: R7-9850X3D
-  floor_cny: 2700
+  floor_cny: 2759
 - model: R7-9800X3D
-  floor_cny: 2420
+  floor_cny: 2439
 - model: R7-7800X3D
-  floor_cny: 1659
+  floor_cny: 1690
 - model: R5-7500F
-  floor_cny: 599
+  floor_cny: 609
 gpus:
 - chip: RTX5080
   min_vram_gb: 16
-  floor_cny: 12399
+  floor_cny: 12390
 - chip: RTX5070TI
   min_vram_gb: 16
-  floor_cny: 9199
+  floor_cny: 9249
 - chip: RTX5070
   min_vram_gb: 12
-  floor_cny: 6779
+  floor_cny: 6600
 - chip: RTX5060TI
   min_vram_gb: 16
-  floor_cny: 5339
+  floor_cny: 5199
 - chip: RTX5060TI
   max_vram_gb: 8
-  floor_cny: 3349
+  floor_cny: 3459
 - chip: RTX5060
   min_vram_gb: 8
-  floor_cny: 3049
+  floor_cny: 3055
 - chip: RTX5050
   min_vram_gb: 8
-  floor_cny: 2499
+  floor_cny: 2299
 - chip: RTX4070SUPER
   min_vram_gb: 12
   floor_cny: 3415
@@ -100,13 +100,13 @@ gpus:
   floor_cny: 1350
 - chip: RX9070XT
   min_vram_gb: 16
-  floor_cny: 5791
+  floor_cny: 5750
 - chip: RX9070GRE
   min_vram_gb: 12
-  floor_cny: 4019
+  floor_cny: 3999
 - chip: RX9070
   min_vram_gb: 16
-  floor_cny: 4888
+  floor_cny: 4790
 - chip: RX9060XT
   min_vram_gb: 16
   floor_cny: 3398
@@ -121,7 +121,7 @@ gpus:
   floor_cny: 2499
 - chip: ARCB570
   min_vram_gb: 10
-  floor_cny: 1998
+  floor_cny: 1979
 memory:
 - generation: DDR4
   capacity_gb: 16
@@ -130,15 +130,15 @@ memory:
 - generation: DDR4
   capacity_gb: 32
   module_count: 2
-  floor_cny: 976
+  floor_cny: 1000
 - generation: DDR5
   capacity_gb: 32
   module_count: 2
-  floor_cny: 2639
+  floor_cny: 2527
 - generation: DDR5
   capacity_gb: 48
   module_count: 2
-  floor_cny: 3689
+  floor_cny: 3599
 - generation: DDR5
   capacity_gb: 64
   module_count: 2
