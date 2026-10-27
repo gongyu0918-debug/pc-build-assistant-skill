@@ -1,9 +1,9 @@
 metadata:
-  price_date: '2026-10-20'
-  cpu_price_date: '2026-10-20'
-  gpu_price_date: '2026-10-20'
-  memory_price_date: '2026-10-20'
-  storage_price_date: '2026-10-20'
+  price_date: '2026-10-27'
+  cpu_price_date: '2026-10-27'
+  gpu_price_date: '2026-10-27'
+  memory_price_date: '2026-10-27'
+  storage_price_date: '2026-10-27'
   source_type: network_public_price_observation
   scope: default_downrank_reference_only
   notes:
@@ -19,17 +19,19 @@ metadata:
     endpoint.
   - RTX 5090, RTX 5090D and RTX 5090D V2 floors are temporarily cleared because those
     cards are moving too fast; always warn users to verify the current price.
-  - Dated daily-low tables cover GPU, memory and storage on 2026-10-20; CPU retains
-    its last explicit evidence on 2026-10-20.
   - Legacy GPU rows absent from the latest daily-low table retain their previous evidence;
     historical lows, second-hand prices and trend charts are not daily floors.
+  - Dated daily-low tables cover the observed CPU, GPU, memory and storage selectors
+    on 2026-10-27; category dates do not advance evidence for absent selectors.
+  - CPU selector R9-9900X is absent from the latest daily-low table; its 2279 CNY
+    floor retains explicit 2026-10-20 evidence.
 cpus:
 - model: U7-270KPLUS
-  floor_cny: 1899
+  floor_cny: 1859
 - model: U7-265K
-  floor_cny: 1599
+  floor_cny: 1539
 - model: U7-265KF
-  floor_cny: 1599
+  floor_cny: 1539
 - model: U5-250K
   floor_cny: 1199
 - model: U5-250KF
@@ -43,55 +45,55 @@ cpus:
 - model: I9-14900KF
   floor_cny: 2470
 - model: I7-14700K
-  floor_cny: 2069
+  floor_cny: 2049
 - model: I7-14700KF
-  floor_cny: 2069
+  floor_cny: 2049
 - model: I5-14600K
-  floor_cny: 1289
+  floor_cny: 1279
 - model: I5-14600KF
-  floor_cny: 1289
+  floor_cny: 1279
 - model: R9-9950X
   floor_cny: 2730
 - model: R9-9900X
   floor_cny: 2279
 - model: R7-9700X
-  floor_cny: 1319
+  floor_cny: 1368
 - model: R5-9600X
-  floor_cny: 1018
+  floor_cny: 1016
 - model: R5-9500F
-  floor_cny: 767
+  floor_cny: 816
 - model: R9-9950X3D
-  floor_cny: 3799
+  floor_cny: 3788
 - model: R7-9850X3D
-  floor_cny: 2775
+  floor_cny: 2719
 - model: R7-9800X3D
-  floor_cny: 2459
+  floor_cny: 2400
 - model: R7-7800X3D
-  floor_cny: 1709
+  floor_cny: 1659
 - model: R5-7500F
   floor_cny: 600
 gpus:
 - chip: RTX5080
   min_vram_gb: 16
-  floor_cny: 15899
+  floor_cny: 19399
 - chip: RTX5070TI
   min_vram_gb: 16
-  floor_cny: 10999
+  floor_cny: 12388
 - chip: RTX5070
   min_vram_gb: 12
-  floor_cny: 6800
+  floor_cny: 8399
 - chip: RTX5060TI
   min_vram_gb: 16
-  floor_cny: 5499
+  floor_cny: 6699
 - chip: RTX5060TI
   max_vram_gb: 8
-  floor_cny: 3609
+  floor_cny: 4799
 - chip: RTX5060
   min_vram_gb: 8
-  floor_cny: 3189
+  floor_cny: 4099
 - chip: RTX5050
   min_vram_gb: 8
-  floor_cny: 2592
+  floor_cny: 2870
 - chip: RTX4070SUPER
   min_vram_gb: 12
   floor_cny: 3415
@@ -100,28 +102,28 @@ gpus:
   floor_cny: 1350
 - chip: RX9070XT
   min_vram_gb: 16
-  floor_cny: 5839
+  floor_cny: 6298
 - chip: RX9070GRE
   min_vram_gb: 12
-  floor_cny: 4039
+  floor_cny: 4129
 - chip: RX9070
   min_vram_gb: 16
-  floor_cny: 4999
+  floor_cny: 5199
 - chip: RX9060XT
   min_vram_gb: 16
-  floor_cny: 3698
+  floor_cny: 3859
 - chip: RX9060XT
   max_vram_gb: 8
-  floor_cny: 2699
+  floor_cny: 2799
 - chip: RX7900XT
   min_vram_gb: 20
   floor_cny: 3184
 - chip: ARCB580
   min_vram_gb: 12
-  floor_cny: 2499
+  floor_cny: 2799
 - chip: ARCB570
   min_vram_gb: 10
-  floor_cny: 1998
+  floor_cny: 2099
 memory:
 - generation: DDR4
   capacity_gb: 16
@@ -130,7 +132,7 @@ memory:
 - generation: DDR4
   capacity_gb: 32
   module_count: 2
-  floor_cny: 1000
+  floor_cny: 1049
 - generation: DDR5
   capacity_gb: 32
   module_count: 2
@@ -138,25 +140,25 @@ memory:
 - generation: DDR5
   capacity_gb: 48
   module_count: 2
-  floor_cny: 3500
+  floor_cny: 3738
 - generation: DDR5
   capacity_gb: 64
   module_count: 2
-  floor_cny: 4899
+  floor_cny: 4896
 - generation: DDR5
   capacity_gb: 96
   module_count: 2
-  floor_cny: 9597
+  floor_cny: 8555
 storage:
 - pcie_generation: 3
   capacity_gb: 1000
   floor_cny: 794
 - pcie_generation: 3
   capacity_gb: 2000
-  floor_cny: 1539
+  floor_cny: 1599
 - pcie_generation: 4
   capacity_gb: 1000
-  floor_cny: 839
+  floor_cny: 853
 - pcie_generation: 4
   capacity_gb: 2000
   floor_cny: 1529
