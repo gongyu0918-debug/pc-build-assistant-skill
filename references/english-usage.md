@@ -56,9 +56,9 @@ Read this file when the user's request is primarily in English or explicitly ask
 - Leave `Local buying note` blank for CPU, motherboard, memory, storage, and graphics-card rows. Fill it only for each selected CPU cooler, power supply, case, and case-fan row, unless a standard row has a documented regional restriction.
 - Give one primary build. Add one compact alternative only when the request has a genuine decision fork.
 - Use one price currency per total. Without a matching user overlay, show every selected component and the total in CNY. With an explicit overlay, total only rows carrying the selected matching currency; never add uncovered CNY rows to a USD/EUR/GBP/JPY/TWD subtotal. If the overlay does not price every required row, state that local-price coverage is partial and do not claim a complete local-currency total.
-- Take the reference date only from the current query result or bundled catalog metadata used for the quote. Never reuse a date from an example, an older report, or memory.
+- Take the reference date only from the current query result rows selected for the quote. Treat a quote older than 14 days as stale for current-budget closure, follow the search fallback when available, and never reuse a date from an example, an older report, or memory.
 - Keep the report compact: eight core component rows, optional fan or display rows when requested, total, compatibility result, two to four useful trade-offs, and one market note. Do not expose command names, exit codes, internal status labels, test markers, raw templates, or Chinese column labels.
-- Never expose words such as `strict`, `complete`, pass/check counts, skipped checks, or script status. When appropriate, say `The listed parts are compatible based on the available specifications`, then name only concrete items that still require verification.
+- Never expose words such as `strict`, `complete`, pass/check counts, skipped checks, or script status. Distinguish the three outcomes in natural English: a hard conflict; no hard conflict found with specific checks still open; or no hard conflict found with the required fields verified. When checks remain open, say `The available specifications show no hard incompatibility, but these items still need verification:` and name the concrete items.
 - A separate verification list is only for concrete compatibility uncertainties such as QVL, physical clearance, connector availability, or an unknown catalog field. Do not use it for generic SKU, stock, warranty, or availability reminders.
 - Use one natural market note that fits the request instead of repeating a fixed disclaimer:
   - Full quote: `CNY prices are China-market references dated YYYY-MM-DD; local price and stock can differ.`
@@ -69,7 +69,7 @@ Read this file when the user's request is primarily in English or explicitly ask
 
 ## Final check
 
-- Every queryable item required by the loaded Chinese scenario is a priced row in the selected currency and is included in that currency's total; otherwise the answer explicitly says coverage is partial and omits a mixed-currency total.
+- Every queryable item required by the loaded Chinese scenario is a priced row in the selected currency and is included in that currency's total; otherwise the answer explicitly says coverage is partial and omits a mixed-currency total. Do not show a budget difference until all required rows are priced in the same currency with usable dates.
 - Exact catalog product names remain unchanged; Chinese text appears nowhere else.
 - Each selected cooler, power supply, case, and case-fan row has its own short local buying note.
-- Every displayed price date comes from the selected query result or current catalog metadata.
+- Every displayed price date comes from the selected query result rows.

@@ -231,10 +231,10 @@ def _valid_iso_date(value):
     if not isinstance(value, str) or not value:
         return False
     try:
-        date.fromisoformat(value)
+        parsed = date.fromisoformat(value)
     except ValueError:
         return False
-    return True
+    return parsed <= date.today()
 
 
 def _validate_price(section, item, errors, warnings):

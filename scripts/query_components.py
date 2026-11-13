@@ -34,8 +34,11 @@ from component_inference import (
     infer_cpu_integrated_graphics,
     infer_gpu_cooling,
     infer_gpu_vram,
+    normalize_memory_generation,
+    normalize_memory_generations,
     normalize_display_output,
     normalize_display_outputs,
+    normalize_psu_form_factor,
 )
 from catalog_overlay import (
     CATEGORY_SECTIONS,
@@ -175,7 +178,7 @@ DISPLAY_NAMES = {
 # Summary fields per category — minimal fields needed for first-pass narrowing.
 SUMMARY_BASE_FIELDS = [
     "id", "brand", "model", "brand_en", "model_en", "normalization_status",
-    "price", "price_currency", "price_cny", "base_price_cny", "price_status", "price_date",
+    "price", "price_currency", "price_cny", "base_price_cny", "price_status", "price_date", "price_note",
     "price_age_days", "price_stale", "price_floor_cny", "price_floor_status",
     "price_floor_gap_percent", "price_floor_bottom_decile_cutoff_cny",
     "price_floor_policy", "price_floor_above_candidate_count",
@@ -491,16 +494,30 @@ def filter_ambiguous_gpu_skus(results, catalog):
 
 
 def dedupe_results(category, results):
-    """Keep the first sorted quote for each indistinguishable displayed SKU."""
-    seen = set()
+    """Keep one quote per displayed SKU, preferring a fresh quote when possible."""
+    seen = {}
     unique = []
     for item in results:
         key = _dedupe_key(category, item)
         if key in seen:
+            index = seen[key]
+            current = unique[index]
+            if (
+                _price_freshness(current).get("price_stale", False)
+                and not _price_freshness(item).get("price_stale", False)
+            ):
+                unique[index] = item
             continue
-        seen.add(key)
+        seen[key] = len(unique)
         unique.append(item)
     return unique
+
+
+def _finalize_sorted_results(results, sort, category):
+    """Deduplicate display rows and restore the requested order afterward."""
+    deduped = dedupe_results(category, results)
+    _sort_results(deduped, sort, category)
+    return deduped
 
 
 def _matches_identity(item, model=None, item_id=None):
@@ -718,7 +735,7 @@ def _outlier_group_key(category, item):
         speed_bucket = (speed // 1000) if speed else 0
         return ("storage", capacity, gen, speed_bucket) if capacity and gen else None
     if category == "memory":
-        generation = str(item.get("generation") or "").upper()
+        generation = normalize_memory_generation(item.get("generation"))
         capacity = _parse_int(item.get("capacity_gb"))
         freq = _parse_int(item.get("frequency_mt"))
         timing = _memory_timing_value(item)
@@ -813,11 +830,11 @@ def _trusted_price_floor(category, item):
                 continue
             return _parse_int(row.get("floor_cny")) or None
     if category == "memory":
-        generation = str(item.get("generation") or "").upper()
+        generation = normalize_memory_generation(item.get("generation"))
         capacity = _parse_int(item.get("capacity_gb"))
         modules = _parse_int(item.get("module_count"))
         for row in floors.get("memory", []):
-            if generation != str(row.get("generation") or "").upper():
+            if generation != normalize_memory_generation(row.get("generation")):
                 continue
             if not _same_capacity(capacity, row.get("capacity_gb")):
                 continue
@@ -870,7 +887,7 @@ def _price_floor_group_key(category, item, floor_cny):
     if category == "memory":
         return (
             "memory",
-            str(item.get("generation") or "").upper(),
+            normalize_memory_generation(item.get("generation")),
             _parse_int(item.get("capacity_gb")),
             _parse_int(item.get("module_count")),
         )
@@ -898,12 +915,11 @@ def _is_floorless_volatile_gpu(item):
 
 
 def _current_market_quotes(items):
-    """Use dated, non-stale quotes for current-market distribution when available."""
-    current = [
+    """Return only dated, non-stale quotes for current-market distribution."""
+    return [
         item for item in items
         if _query_price_date(item) and not _price_freshness(item).get("price_stale", False)
     ]
-    return current or items
 
 
 def _popular_brand_market_shift(items, floor_cny):
@@ -988,6 +1004,9 @@ def filter_low_price_outliers(category, results, budget=None, explicit_identity=
         for item in items:
             price = float(_query_price(item))
             below_floor = bool(price and price < floor_cny)
+            stale_below_floor = bool(
+                below_floor and _price_freshness(item).get("price_stale", False)
+            )
             gap_percent = round(max(0.0, (floor_cny - price) / floor_cny * 100), 1) if price else 0.0
             deep_below_floor = bool(
                 below_floor and bottom_decile_cutoff is not None
@@ -1023,6 +1042,12 @@ def filter_low_price_outliers(category, results, budget=None, explicit_identity=
                     warnings.append("因用户点名保留为可选项。")
                 elif _is_selected_user_quote(item):
                     item["price_floor_policy"] = "user_quote"
+                elif stale_below_floor:
+                    item["price_floor_policy"] = "stale_below_floor_not_current"
+                    item["_price_floor_rank"] = 2
+                    warnings.append(
+                        "报价已超过14天且低于可信地板，只能作为历史备选，不能用于当前市场下移判断或预算补齐。"
+                    )
                 elif market_shift:
                     item["price_floor_policy"] = "popular_market_fallback"
                     warnings.append(
@@ -1137,7 +1162,7 @@ def in_current_scope(section, item, include_workstation_gpu=False, max_cooler_he
 
     if section == "memory":
         # Keep low-budget fallback candidates visible; recommendation rules still prefer 16GB+.
-        return str(item.get("generation", "")).upper() in {"DDR4", "DDR5"} and _parse_int(item.get("capacity_gb")) >= 8
+        return normalize_memory_generation(item.get("generation")) in {"DDR4", "DDR5"} and _parse_int(item.get("capacity_gb")) >= 8
 
     if section == "storage":
         form = str(item.get("form_factor", "")).upper()
@@ -1194,13 +1219,13 @@ def _matches_socket(item, requested):
 
 
 def _matches_memory_gen(section, item, requested):
-    wanted = str(requested or "").upper()
+    wanted = normalize_memory_generation(requested)
     if not wanted:
         return True
     if section == "motherboards":
-        return wanted in [str(g).upper() for g in item.get("memory_generations", [])]
+        return wanted in normalize_memory_generations(item.get("memory_generations"))
     if section == "memory":
-        return wanted == str(item.get("generation", "")).upper()
+        return wanted == normalize_memory_generation(item.get("generation"))
     return True
 
 
@@ -1251,7 +1276,12 @@ def _matches_form_factor(section, item, requested):
         }
         return any(wanted in compatible.get(value, {value}) for value in supported)
     if section == "psus":
-        return _normalize_form_factor(item.get("form_factor")) == wanted
+        psu_form = normalize_psu_form_factor(item.get("form_factor"))
+        requested_form = normalize_psu_form_factor(requested)
+        return (
+            _normalize_form_factor(psu_form)
+            == _normalize_form_factor(requested_form)
+        )
     return True
 
 
@@ -1623,7 +1653,10 @@ def _query_cases(spec):
             continue
         results.append(item)
     _sort_results(results, spec.sort, "case")
-    return [_summarize_case(item) for item in dedupe_results("case", results)[:spec.limit]]
+    return [
+        _summarize_case(item)
+        for item in _finalize_sorted_results(results, spec.sort, "case")[:spec.limit]
+    ]
 
 
 def _query_displays(spec):
@@ -1642,7 +1675,7 @@ def _query_displays(spec):
             result["brand"] = infer_display_brand(result)
         results.append(result)
     _sort_results(results, spec.sort, "display")
-    return dedupe_results("display", results)[:spec.limit]
+    return _finalize_sorted_results(results, spec.sort, "display")[:spec.limit]
 
 
 def _query_fans(spec):
@@ -1678,7 +1711,7 @@ def _query_fans(spec):
             continue
         results.append(item)
     _sort_results(results, spec.sort, "fan")
-    return dedupe_results("fan", results)[:spec.limit]
+    return _finalize_sorted_results(results, spec.sort, "fan")[:spec.limit]
 
 
 def _query_core_components(spec):
@@ -1780,7 +1813,7 @@ def _query_core_components(spec):
             if spec.category == "gpu":
                 results = filter_ambiguous_gpu_skus(results, lib.get("gpus", []))
     _sort_results(results, spec.sort, spec.category)
-    return dedupe_results(spec.category, results)[:spec.limit]
+    return _finalize_sorted_results(results, spec.sort, spec.category)[:spec.limit]
 
 
 def query(category=None, budget=None, platform=None, color=None,
@@ -1997,7 +2030,7 @@ def _memory_tier(item):
     elif module_count > 2:
         score -= 3
     price = _parse_int(_query_price(item)) if _QUERY_CURRENCY == "CNY" else 0
-    generation = str(item.get("generation", "")).upper()
+    generation = normalize_memory_generation(item.get("generation"))
     capacity_gb = _parse_int(item.get("capacity_gb"))
     if generation == "DDR5" and freq >= 5600 and capacity_gb >= 32 and 0 < price < 1300:
         score -= 8
@@ -2155,6 +2188,7 @@ def _summarize_case(case):
         "base_price_cny": case.get("base_price_cny"),
         "price_status": price_view["price_status"],
         "price_date": price_view["price_date"],
+        "price_note": price_view["price_note"],
         **_price_freshness(case),
         "colors": case.get("colors", case.get("color", "")),
         "motherboard_support": case.get("motherboard_support", []),
@@ -2517,6 +2551,14 @@ def _single_output(results, category, detail):
     return [summarize(item, category) for item in results]
 
 
+def _price_note_tag(item):
+    note = re.sub(r"\s+", " ", str(item.get("price_note") or "")).strip()
+    if not note:
+        return ""
+    display = note if len(note) <= 160 else note[:157] + "..."
+    return f" [报价备注: {display}]"
+
+
 def _print_result_row(category, item, *, detail=False):
     selected_price = item.get("price") or _query_price(item)
     currency = item.get("price_currency", _QUERY_CURRENCY)
@@ -2526,6 +2568,7 @@ def _print_result_row(category, item, *, detail=False):
         showcase_tag = " [海景房]" if item.get("is_showcase") else ""
         extra = display_extra(category, item)
         stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
+        note_tag = _price_note_tag(item)
         if item.get("price_floor_status") == "deep_below":
             floor_tag = " [低于地板且处同品类最低10%，默认不推荐]"
         elif item.get("price_floor_status") == "below":
@@ -2539,11 +2582,12 @@ def _print_result_row(category, item, *, detail=False):
         print(
             f"  {item.get('id',''):45s} {item.get('brand',''):10s} "
             f"{item.get('model',''):35s} {price:>8s} {color} {extra} "
-            f"{showcase_tag}{stale_tag}{floor_tag}"
+            f"{showcase_tag}{stale_tag}{floor_tag}{note_tag}"
         )
         return
     price = f"{currency} {selected_price}" if selected_price else "待补价"
     stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
+    note_tag = _price_note_tag(item)
     if item.get("price_floor_status") == "deep_below":
         floor_tag = " [低于地板且处同品类最低10%，默认不推荐]"
     elif item.get("price_floor_status") == "below":
@@ -2556,7 +2600,7 @@ def _print_result_row(category, item, *, detail=False):
         floor_tag = ""
     print(
         f"  {item['id']:45s} {item.get('brand',''):12s} "
-        f"{item.get('model',''):40s} {price:>8s}{stale_tag}{floor_tag}"
+        f"{item.get('model',''):40s} {price:>8s}{stale_tag}{floor_tag}{note_tag}"
     )
 
 

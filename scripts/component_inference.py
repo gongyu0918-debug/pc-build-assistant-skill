@@ -127,6 +127,9 @@ GPU_LIQUID_TERMS = (
 GPU_VRAM_PATTERN = re.compile(
     r"(?<!\d)(?:O)?(96|48|32|24|20|16|12|10|8|6|4)\s*G(?:B)?(?!\d)"
 )
+MEMORY_GENERATION_TOKEN_PATTERN = re.compile(
+    r"(?<![A-Z0-9])DDR\s*([345])(?![0-9])", re.IGNORECASE
+)
 STORAGE_M2_FORM_PATTERN = re.compile(
     r"(?<![A-Z0-9])(?:M\s*[.\-]?\s*2|NGFF)(?![A-Z0-9])",
     re.IGNORECASE,
@@ -344,6 +347,37 @@ def infer_memory_capacity_gb(item):
     return item.get("capacity_gb")
 
 
+def normalize_memory_generation(value):
+    """Canonicalize one memory generation without hiding conflicting values."""
+    text = unicodedata.normalize("NFKC", str(value or "")).strip().upper()
+    matches = {
+        f"DDR{match.group(1)}"
+        for match in MEMORY_GENERATION_TOKEN_PATTERN.finditer(text)
+    }
+    if len(matches) == 1:
+        return matches.pop()
+    return re.sub(r"\s+", " ", text)
+
+
+def normalize_memory_generations(values):
+    """Expand a board's DDR support list and canonicalize common labels."""
+    if values in (None, "", [], (), {}):
+        return []
+    raw_values = list(values) if isinstance(values, (list, tuple, set)) else [values]
+    result = []
+    for value in raw_values:
+        text = unicodedata.normalize("NFKC", str(value or "")).strip().upper()
+        matches = [
+            f"DDR{match.group(1)}"
+            for match in MEMORY_GENERATION_TOKEN_PATTERN.finditer(text)
+        ]
+        normalized = matches or ([re.sub(r"\s+", " ", text)] if text else [])
+        for generation in normalized:
+            if generation not in result:
+                result.append(generation)
+    return result
+
+
 def infer_memory_module_count(item):
     """Infer memory module count from common kit notation such as 32Gx2."""
     text = _upper(item).replace("×", "X")
@@ -359,7 +393,7 @@ def infer_explicit_memory_frequency_mt(item):
     """Return one unambiguous DDR frequency written in the model, or None."""
     text = str(item.get("model") or "").upper().replace("－", "-")
     ddr_matches = list(MEMORY_DDR_FREQUENCY_PATTERN.finditer(text))
-    declared_generation = str(item.get("generation") or "").upper().replace(" ", "")
+    declared_generation = normalize_memory_generation(item.get("generation")).replace(" ", "")
     if declared_generation and any(
         declared_generation != f"DDR{match.group(1)}" for match in ddr_matches
     ):
@@ -455,7 +489,20 @@ def infer_psu_form_factor(item):
         return "FLEX"
     if re.search(r"(?<![A-Z0-9])TFX(?![A-Z0-9])", text):
         return "TFX"
-    return item.get("form_factor")
+    return normalize_psu_form_factor(item.get("form_factor"))
+
+
+def normalize_psu_form_factor(value):
+    """Canonicalize a PSU enclosure form while ignoring ATX revision suffixes."""
+    text = unicodedata.normalize("NFKC", str(value or "")).strip()
+    compact = re.sub(r"[\s._-]+", "", text.upper())
+    if re.fullmatch(r"ATX(?:3(?:\d+)?)?", compact):
+        return "ATX"
+    if re.fullmatch(r"SFX(L)?(?:4(?:\d+)?)?", compact):
+        return "SFX-L" if re.fullmatch(r"SFXL.*", compact) else "SFX"
+    if compact in {"TFX", "FLEX"}:
+        return compact
+    return text
 
 
 def infer_explicit_cooler_radiator_mm(item):

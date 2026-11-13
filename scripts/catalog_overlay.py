@@ -181,6 +181,24 @@ def _reject_constant(value):
     raise OverlayError("invalid_number", f"non-finite number is forbidden: {value}")
 
 
+def _reject_unpaired_surrogates(value):
+    """Reject JSON strings that UTF-8 terminals and files cannot represent."""
+    stack = [value]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, str):
+            if any(0xD800 <= ord(character) <= 0xDFFF for character in current):
+                raise OverlayError(
+                    "invalid_encoding", "overlay JSON contains an unpaired Unicode surrogate"
+                )
+        elif isinstance(current, dict):
+            for key, item in current.items():
+                stack.append(key)
+                stack.append(item)
+        elif isinstance(current, (list, tuple)):
+            stack.extend(current)
+
+
 def load_json_strict(source, *, max_bytes=5_000_000):
     try:
         if hasattr(source, "read"):
@@ -199,14 +217,24 @@ def load_json_strict(source, *, max_bytes=5_000_000):
         text = payload
     else:
         raise OverlayError("file_read_error", "overlay source must provide text or bytes")
-    if len(text.encode("utf-8")) > max_bytes:
+    try:
+        encoded_size = len(text.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise OverlayError("invalid_encoding", "overlay JSON must contain valid Unicode") from exc
+    if encoded_size > max_bytes:
         raise OverlayError("file_too_large", f"overlay exceeds {max_bytes} bytes")
     try:
-        return json.loads(text, object_pairs_hook=_pairs_no_duplicates, parse_constant=_reject_constant)
+        document = json.loads(
+            text,
+            object_pairs_hook=_pairs_no_duplicates,
+            parse_constant=_reject_constant,
+        )
     except OverlayError:
         raise
     except (ValueError, UnicodeError, RecursionError) as exc:
         raise OverlayError("invalid_json", str(exc)) from exc
+    _reject_unpaired_surrogates(document)
+    return document
 
 
 def _keys(obj, allowed, path):
@@ -221,9 +249,11 @@ def _iso_date(value, path):
     if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         raise OverlayError("invalid_date", "expected ISO date YYYY-MM-DD", path)
     try:
-        date.fromisoformat(value)
+        parsed = date.fromisoformat(value)
     except ValueError as exc:
         raise OverlayError("invalid_date", "expected ISO date YYYY-MM-DD", path) from exc
+    if parsed > date.today():
+        raise OverlayError("invalid_date", "price date cannot be in the future", path)
 
 
 def _price(value, path):

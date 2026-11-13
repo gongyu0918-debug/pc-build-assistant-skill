@@ -30,7 +30,10 @@ from component_inference import (
     infer_cpu_integrated_graphics,
     infer_native_16pin_psu,
     infer_requires_16pin_gpu,
+    normalize_memory_generation,
+    normalize_memory_generations,
     normalize_display_outputs,
+    normalize_psu_form_factor,
     storage_interface_form_factor_consistent,
     storage_model_form_factor_consistent,
 )
@@ -368,8 +371,8 @@ class CompatibilityChecker:
         results = []
         for i, mem in enumerate(memory_list):
             label = str(i + 1) if len(memory_list) > 1 else ""
-            mem_gen = mem.get("generation", "")
-            mb_gens = self._as_list(mb.get("memory_generations"))
+            mem_gen = normalize_memory_generation(mem.get("generation"))
+            mb_gens = normalize_memory_generations(mb.get("memory_generations"))
             if not mem_gen or not mb_gens:
                 results.append({"type": "msg", "msg": f"内存{label}缺少接口信息"})
                 continue
@@ -756,7 +759,10 @@ class CompatibilityChecker:
         if not psu:
             return {}
         case_model = str(case.get("model", ""))
-        case_psu_support = [self._normalize(s) for s in self._as_list(case.get("psu_support"))]
+        case_psu_support = [
+            self._normalize(normalize_psu_form_factor(value))
+            for value in self._as_list(case.get("psu_support"))
+        ]
         model_special = any(
             term in case_model.upper()
             for term in ("ITX", "MINI", "SFX", "NAS", "HTPC", "卧式", "小型", "紧凑")
@@ -770,7 +776,7 @@ class CompatibilityChecker:
             and any(s in small_psu_forms for s in case_psu_support)
         )
         special_case = model_special or small_psu_only or compact_hybrid
-        psu_size = self._normalize(psu.get("form_factor"))
+        psu_size = self._normalize(normalize_psu_form_factor(psu.get("form_factor")))
         if not psu_size:
             return {"type": "skipped",
                 "msg": "电源缺少规格字段，普通机箱虽通常使用ATX电源，仍需确认实际为ATX/SFX/SFX-L/FLEX及限长/限高"}
