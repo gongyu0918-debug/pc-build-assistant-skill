@@ -9,17 +9,27 @@ parameter count as the final VRAM figure.
 from __future__ import annotations
 
 import math
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
+from data_loader import DataLoadError, load_data_document, load_structured_bytes
 
 
 ROOT = Path(__file__).resolve().parents[1]
 YAML_SUFFIX = "." + "yaml"
+_JSON_POLICY_PATH = ROOT / "data" / "model_fit.json"
 _YAML_POLICY_PATH = ROOT / "data" / f"model_fit{YAML_SUFFIX}"
 _TEXT_POLICY_PATH = ROOT / "data" / "model_fit.txt"
-DEFAULT_POLICY_PATH = _YAML_POLICY_PATH if _YAML_POLICY_PATH.exists() else _TEXT_POLICY_PATH
+DEFAULT_POLICY_PATH = (
+    _JSON_POLICY_PATH
+    if _JSON_POLICY_PATH.exists()
+    else (_YAML_POLICY_PATH if _YAML_POLICY_PATH.exists() else _TEXT_POLICY_PATH)
+)
 PARAMETER_LABEL_TOLERANCE = 1.05
 
 
@@ -128,10 +138,13 @@ class ModelFitCatalog:
 def load_catalog(path: Path | str = DEFAULT_POLICY_PATH) -> ModelFitCatalog:
     source = Path(path)
     try:
-        document = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        if source.resolve() == DEFAULT_POLICY_PATH.resolve() and source.parent.resolve() == (ROOT / "data").resolve():
+            document = load_data_document(ROOT / "data", "model_fit", allow_missing=False)
+        else:
+            document = load_structured_bytes(source.read_bytes(), default={})
+    except (OSError, DataLoadError) as exc:
         raise ModelFitError("invalid_model_fit_data", f"无法读取模型适配数据：{exc}") from exc
-    if not isinstance(document.get("policy"), dict) or not isinstance(document.get("models"), list):
+    if not isinstance(document, dict) or not isinstance(document.get("policy"), dict) or not isinstance(document.get("models"), list):
         raise ModelFitError("invalid_model_fit_data", "模型适配数据缺少 policy 或 models")
     try:
         policy = FitPolicy.from_mapping(document["policy"])

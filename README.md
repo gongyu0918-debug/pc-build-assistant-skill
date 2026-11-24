@@ -4,7 +4,7 @@
 
 - Skill slug: `pc-build-assistant`
 - 展示名称: `PC Build Assistant`
-- 当前版本: `0.1.57`
+- 当前版本: `0.2.0`
 - 许可证: MIT
 - 价格参考日期: 以所选条目 `price_date` 为准；整包参考日期运行时读取数据文件 metadata
 - 价格来源说明: 数据来自网络公开信息整理，仅供预算参考，不代表实时成交价或可下单价格。
@@ -48,15 +48,16 @@ Skill 中的“热门采用 / 常见装机 / 新兴特色”候选池，只是�
 预算 12000，黑色无光，主玩 3A
 ```
 
-如果手动运行脚本，可在 Skill 根目录执行：
+如果手动运行脚本，可在 Skill 根目录使用标准库 Python 3 直接执行（无需额外第三方依赖）：
 
 ```bash
-python -B scripts/query_components.py --category gpu --budget 5000 --sort tier --limit 20
-python -B scripts/check_compatibility.py --strict --require-complete --cpu <cpu-id> --mb <mb-id> --mem <mem-id> --storage <ssd-id> --gpu <gpu-id> --psu <psu-id> --cooler <cooler-id> --case <case-id>
-python -B scripts/import_user_catalog.py <draft.json> --validate-only --json
-python -B scripts/query_components.py --category gpu --overlay <user-catalog.json> --currency USD --json
-python -B scripts/query_price_history.py --id <component-id> --versions 5 --json
-python -B scripts/validate_library.py
+python3 -B scripts/query_components.py --category gpu --budget 5000 --sort tier --limit 20
+python3 -B scripts/check_compatibility.py --strict --require-complete --cpu <cpu-id> --mb <mb-id> --mem <mem-id> --storage <ssd-id> --gpu <gpu-id> --psu <psu-id> --cooler <cooler-id> --case <case-id>
+python3 -B scripts/import_user_catalog.py <draft.json> --validate-only --json
+python3 -B scripts/query_components.py --category gpu --overlay <user-catalog.json> --currency USD --json
+python3 -B scripts/query_model_fit.py --params-b 14 --gpu-id <gpu-id> --json
+python3 -B scripts/query_price_history.py --id <component-id> --versions 5 --json
+python3 -B scripts/validate_library.py
 ```
 
 ## 文件结构
@@ -65,36 +66,51 @@ python -B scripts/validate_library.py
 .
 ├── SKILL.md
 ├── LICENSE
+├── README.md
 ├── agents/openai.yaml
 ├── data/
-│   ├── components.yaml
+│   ├── cases.json
 │   ├── cases.yaml
+│   ├── components.json
+│   ├── components.yaml
+│   ├── displays.json
 │   ├── displays.yaml
+│   ├── game_fps.json
 │   ├── game_fps.yaml
 │   ├── hardware_name_aliases.json
+│   ├── model_fit.json
+│   ├── model_fit.yaml
+│   ├── price_floors.json
 │   └── price_floors.yaml
 ├── references/
-│   ├── routing.md
-│   ├── selection-policy.md
-│   ├── workflows.md
-│   ├── scenarios.md
-│   ├── hardware-faq.md
+│   ├── compatibility.md
 │   ├── english-usage.md
 │   ├── game-performance.md
+│   ├── hardware-faq.md
+│   ├── hardware-scope.md
+│   ├── liquid-cooling-support.md
+│   ├── local-model-fit.md
 │   ├── price-history.md
+│   ├── pricing.md
+│   ├── routing.md
+│   ├── scenarios.md
+│   ├── selection-policy.md
 │   ├── user-catalog.md
 │   ├── user-overlay.schema.json
-│   ├── pricing.md
-│   ├── compatibility.md
-│   └── hardware-scope.md
+│   └── workflows.md
 └── scripts/
-    ├── component_inference.py
     ├── catalog_overlay.py
+    ├── check_compatibility.py
+    ├── component_inference.py
+    ├── data_loader.py
     ├── import_user_catalog.py
+    ├── model_fit.py
+    ├── motherboard_capabilities.py
+    ├── power_budget.py
     ├── query_components.py
     ├── query_game_fps.py
+    ├── query_model_fit.py
     ├── query_price_history.py
-    ├── check_compatibility.py
     └── validate_library.py
 ```
 

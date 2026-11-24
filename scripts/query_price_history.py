@@ -17,7 +17,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-import yaml
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
+from data_loader import DataLoadError, load_structured_bytes, resolve_data_paths, sha256_normalized_bytes
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -255,11 +259,24 @@ def parse_catalog_spec(value):
 def resolve_local_catalogue(path, item_id):
     if path.is_file():
         return path
+    stem = "cases" if str(item_id).startswith("case-") else "components"
+    for candidate_dir in (path / "data", path):
+        json_path, source_path = resolve_data_paths(candidate_dir, stem)
+        if json_path is not None:
+            if source_path is None:
+                return json_path
+            try:
+                parsed = json.loads(json_path.read_bytes().decode("utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                parsed = None
+            if (
+                isinstance(parsed, dict)
+                and parsed.get("__source_sha256__") == sha256_normalized_bytes(source_path.read_bytes())
+            ):
+                return json_path
+        if source_path is not None:
+            return source_path
     relative = Path(catalogue_relative_path(item_id))
-    candidates = (path / relative, path / relative.name)
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
     raise QueryError("catalog_file_missing", f"catalog directory does not contain {relative.as_posix()}")
 
 
@@ -276,9 +293,9 @@ def read_local_bytes(path, max_bytes):
 
 def parse_catalogue(payload):
     try:
-        data = yaml.safe_load(payload.decode("utf-8")) or {}
-    except (UnicodeDecodeError, yaml.YAMLError) as error:
-        raise QueryError("catalog_parse_error", "catalog was not valid UTF-8 YAML") from error
+        data = load_structured_bytes(payload, default={})
+    except DataLoadError as error:
+        raise QueryError("catalog_parse_error", "catalog was not valid UTF-8 YAML or JSON") from error
     if not isinstance(data, dict):
         raise QueryError("catalog_parse_error", "catalog root must be a mapping")
     return data

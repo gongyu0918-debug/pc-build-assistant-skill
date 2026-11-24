@@ -7,13 +7,17 @@ import copy
 import json
 import math
 import re
+import sys
 import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-import yaml
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
 
+from data_loader import DataLoadError, load_data_document
 from component_inference import (
     USER_CONFIRMED_SPEC_FIELDS,
     enrich_item,
@@ -496,20 +500,17 @@ CATALOGUE_FILES = (
 
 
 def load_catalog_sections(data_dir):
-    """Load the bundled YAML catalogue, including Red package .txt adapters."""
+    """Load the bundled catalogue (compiled JSON fast-path with YAML/TXT fallback)."""
     data_dir = Path(data_dir)
     sections = {}
     for filenames, section_names in CATALOGUE_FILES:
-        path = next((data_dir / name for name in filenames if (data_dir / name).is_file()), None)
-        if path is None:
-            continue
+        stem = filenames[0].split(".", 1)[0]
         try:
-            with path.open("r", encoding="utf-8") as handle:
-                document = yaml.safe_load(handle) or {}
-        except (OSError, UnicodeError, yaml.YAMLError) as exc:
-            raise OverlayError("catalog_read_error", f"unable to read bundled catalog: {path.name}") from exc
+            document = load_data_document(data_dir, stem, allow_missing=True)
+        except (OSError, DataLoadError) as exc:
+            raise OverlayError("catalog_read_error", f"unable to read bundled catalog: {stem}") from exc
         if not isinstance(document, dict):
-            raise OverlayError("catalog_read_error", f"bundled catalog root must be an object: {path.name}")
+            raise OverlayError("catalog_read_error", f"bundled catalog root must be an object: {stem}")
         for section in section_names:
             items = document.get(section, [])
             if not isinstance(items, list):

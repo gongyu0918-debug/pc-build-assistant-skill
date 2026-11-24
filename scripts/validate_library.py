@@ -11,8 +11,11 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-import yaml
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
 
+from data_loader import DataLoadError, load_data_document, verify_compiled_sync
 from component_inference import (
     enrich_item,
     infer_cooler_type,
@@ -41,8 +44,11 @@ YAML_SUFFIX = "." + "yaml"
 
 
 def _data_path(stem):
-    yaml_path = DATA / f"{stem}{YAML_SUFFIX}"
-    return yaml_path if yaml_path.exists() else DATA / f"{stem}.txt"
+    for suffix in (".json", YAML_SUFFIX, ".txt"):
+        candidate = DATA / f"{stem}{suffix}"
+        if candidate.exists():
+            return candidate
+    return DATA / f"{stem}{YAML_SUFFIX}"
 
 REQUIRED_SECTIONS = ["cpus", "motherboards", "memory", "storage", "gpus", "coolers", "psus", "fans"]
 
@@ -591,8 +597,7 @@ def _validate_displays():
         state.notes.append("display catalog: optional explicit monitor database missing")
         return state
 
-    with displays_path.open("r", encoding="utf-8") as file:
-        displays = yaml.safe_load(file) or {}
+    displays = load_data_document(DATA, "displays", allow_missing=True)
     display_items = displays.get("displays", [])
     state.counts["displays"] = len(display_items)
     missing_display_prices = []
@@ -664,8 +669,7 @@ def _validate_game_fps():
         state.errors.append("game FPS catalog: missing game FPS reference table")
         return state
 
-    with game_fps_path.open("r", encoding="utf-8") as file:
-        game_fps = yaml.safe_load(file) or {}
+    game_fps = load_data_document(DATA, "game_fps", allow_missing=False)
     game_ids = {game.get("id") for game in game_fps.get("games", []) if game.get("id")}
     if not game_ids:
         state.errors.append("game FPS catalog: no games")
@@ -698,9 +702,8 @@ def _validate_model_fit():
         state.errors.append("model-fit catalog: missing local LLM hardware-fit policy")
         return state
     try:
-        with model_fit_path.open("r", encoding="utf-8") as file:
-            document = yaml.safe_load(file) or {}
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        document = load_data_document(DATA, "model_fit", allow_missing=False)
+    except (OSError, DataLoadError) as exc:
         state.errors.append(f"model-fit catalog: cannot load: {exc}")
         return state
     policy = document.get("policy")
@@ -839,8 +842,11 @@ def main():
         print(f"FAIL: {comp_path} not found")
         return 1
 
-    with comp_path.open("r", encoding="utf-8") as f:
-        lib = yaml.safe_load(f) or {}
+    try:
+        lib = load_data_document(DATA, "components", allow_missing=False)
+    except (OSError, DataLoadError) as exc:
+        print(f"FAIL: cannot load components: {exc}")
+        return 1
 
     component_result = _validate_component_sections(lib)
 
@@ -849,19 +855,29 @@ def main():
         print(f"FAIL: {cases_path} not found")
         return 1
 
-    with cases_path.open("r", encoding="utf-8") as f:
-        cases = yaml.safe_load(f) or {}
+    try:
+        cases = load_data_document(DATA, "cases", allow_missing=False)
+    except (OSError, DataLoadError) as exc:
+        print(f"FAIL: cannot load cases: {exc}")
+        return 1
 
     case_items, case_result = _validate_cases(cases)
     display_result = _validate_displays()
     fps_result = _validate_game_fps()
     model_fit_result = _validate_model_fit()
+    sync_errors = [
+        err
+        for stem in ("components", "cases", "displays", "game_fps", "model_fit", "price_floors")
+        for err in (verify_compiled_sync(DATA, stem),)
+        if err
+    ]
     state = _combine_validation_results(
         component_result,
         case_result,
         display_result,
         fps_result,
         model_fit_result,
+        ValidationResult(errors=sync_errors),
     )
     return _report_validation(lib, case_items, state)
 

@@ -21,8 +21,11 @@ from functools import lru_cache
 from statistics import median
 from pathlib import Path
 
-import yaml
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
 
+from data_loader import load_data_document
 from component_inference import (
     THERMAL_HIGH,
     THERMAL_LOW,
@@ -130,6 +133,7 @@ class QuerySpec:
     min_pcie_slots: int | None = None
     require_usb4: bool = False
     require_thunderbolt: bool = False
+    fresh_only: bool = False
 
 DEDUPE_SPEC_FIELDS = {
     "cpu": ("socket", "power_w", "integrated_graphics"),
@@ -360,12 +364,7 @@ def load_price_floors():
     global _PRICE_FLOORS
     if _PRICE_FLOORS is not None:
         return _PRICE_FLOORS
-    path = DATA / "price_floors.yaml"
-    if not path.exists():
-        _PRICE_FLOORS = {}
-        return _PRICE_FLOORS
-    with path.open("r", encoding="utf-8") as f:
-        _PRICE_FLOORS = yaml.safe_load(f) or {}
+    _PRICE_FLOORS = load_data_document(DATA, "price_floors", allow_missing=True)
     return _PRICE_FLOORS
 
 
@@ -1627,6 +1626,8 @@ def _matches_common_candidate(item, spec):
         return False
     if spec.has_price_only and not _has_usable_price(item) and not (spec.model or spec.item_id):
         return False
+    if spec.fresh_only and not spec.item_id and _price_freshness(item).get("price_stale", False):
+        return False
     if spec.budget and _query_price(item) and _query_price(item) > spec.budget:
         return False
     return True
@@ -1827,7 +1828,7 @@ def query(category=None, budget=None, platform=None, color=None,
           radiator_bundle=None, fan_type=None, model=None, item_id=None,
           max_capacity=None, pcie_generation=None, dram_cache=None,
           integrated_graphics=None, display_output=None, min_pcie_slots=None,
-          require_usb4=False, require_thunderbolt=False):
+          require_usb4=False, require_thunderbolt=False, fresh_only=False):
     """查询配件。返回匹配的配件列表。"""
     spec = QuerySpec(
         category=category,
@@ -1871,6 +1872,7 @@ def query(category=None, budget=None, platform=None, color=None,
         min_pcie_slots=min_pcie_slots,
         require_usb4=require_usb4,
         require_thunderbolt=require_thunderbolt,
+        fresh_only=fresh_only,
     )
     if category == "case":
         return _query_cases(spec)
@@ -2108,7 +2110,8 @@ def _psu_tier(item):
 def _tier_sort_key(category, item):
     """Category-aware tier sort used by the progressive query helper."""
     price = _query_price(item)
-    price_key = (item.get("_price_floor_rank", 0), price <= 0, price, item.get("id", ""))
+    is_stale = bool(item.get("price_stale", _price_freshness(item).get("price_stale", False)))
+    price_key = (item.get("_price_floor_rank", 0), is_stale, price <= 0, price, item.get("id", ""))
     if category == "cpu":
         return (-_cpu_tier(item), *price_key)
     if category == "gpu":
@@ -2135,7 +2138,7 @@ def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
               include_workstation_gpu=False, showcase=None, air_flow=None, dust_filter=None,
               model=None, item_id=None, max_capacity=None, integrated_graphics=None,
               display_output=None, min_pcie_slots=None, require_usb4=False,
-              require_thunderbolt=False):
+              require_thunderbolt=False, fresh_only=False):
     """Return core PC candidates grouped by category for smoke/progressive disclosure."""
     grouped = {}
     for category in CORE_CATEGORIES:
@@ -2170,6 +2173,7 @@ def query_all(budget=None, platform=None, color=None, rgb=None, limit=5,
             showcase=showcase if category == "case" else None,
             air_flow=air_flow if category == "case" else None,
             dust_filter=dust_filter if category == "case" else None,
+            fresh_only=fresh_only,
         )
     return grouped
 
@@ -2418,6 +2422,8 @@ def _build_parser():
     parser.add_argument("--include-legacy", action="store_true", help="包含旧平台/非当前推荐范围条目")
     parser.add_argument("--include-workstation-gpu", action="store_true",
                         help="包含 RTX PRO 6000 等工作站显卡；仅本地大模型/工作站超高预算场景使用")
+    parser.add_argument("--fresh-only", action="store_true",
+                        help="只保留14天内的近期报价候选（精确 --id 查询仍保留原条目）")
     return parser
 
 
@@ -2483,6 +2489,7 @@ def _run_grouped_query(args):
         min_pcie_slots=args.min_pcie_slots,
         require_usb4=args.require_usb4,
         require_thunderbolt=args.require_thunderbolt,
+        fresh_only=args.fresh_only,
     )
 
 
@@ -2528,6 +2535,7 @@ def _run_single_query(args):
         min_pcie_slots=args.min_pcie_slots if args.category == "mb" else None,
         require_usb4=args.require_usb4 if args.category == "mb" else False,
         require_thunderbolt=args.require_thunderbolt if args.category == "mb" else False,
+        fresh_only=args.fresh_only,
     )
 
 
@@ -2567,7 +2575,12 @@ def _print_result_row(category, item, *, detail=False):
         color = item.get("colors", item.get("color", ""))
         showcase_tag = " [海景房]" if item.get("is_showcase") else ""
         extra = display_extra(category, item)
-        stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
+        stale_date = item.get("price_date")
+        stale_tag = (
+            f" [价格超过14天, {stale_date}]"
+            if item.get("price_stale") and stale_date
+            else (" [价格超过14天]" if item.get("price_stale") else "")
+        )
         note_tag = _price_note_tag(item)
         if item.get("price_floor_status") == "deep_below":
             floor_tag = " [低于地板且处同品类最低10%，默认不推荐]"
@@ -2586,7 +2599,12 @@ def _print_result_row(category, item, *, detail=False):
         )
         return
     price = f"{currency} {selected_price}" if selected_price else "待补价"
-    stale_tag = " [价格超过14天]" if item.get("price_stale") else ""
+    stale_date = item.get("price_date")
+    stale_tag = (
+        f" [价格超过14天, {stale_date}]"
+        if item.get("price_stale") and stale_date
+        else (" [价格超过14天]" if item.get("price_stale") else "")
+    )
     note_tag = _price_note_tag(item)
     if item.get("price_floor_status") == "deep_below":
         floor_tag = " [低于地板且处同品类最低10%，默认不推荐]"

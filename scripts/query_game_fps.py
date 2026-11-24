@@ -11,7 +11,11 @@ import re
 import sys
 from pathlib import Path
 
-import yaml
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
+from data_loader import load_data_document
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -70,9 +74,7 @@ def normalize_resolution(value):
 
 
 def load_db():
-    path = DATA / "game_fps.yaml"
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    return load_data_document(DATA, "game_fps", allow_missing=False)
 
 
 def find_game(db, query):
